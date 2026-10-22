@@ -1,0 +1,6 @@
+{
+  "name": "Global Command: Age of Strategy",
+  "description": "Grand modern military & geopolitical strategy simulator featuring 3D tactical globe, procedural theatre maps, AI-driven nations, combat simulations, deep diplomacy, research, intelligence, and wartime economies.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
