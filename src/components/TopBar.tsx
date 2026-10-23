@@ -22,6 +22,7 @@ import {
 import { GameState, ResourceKey } from '../types';
 import { Language, t } from '../utils/localization';
 import { calculateCountryEconomy } from '../economy/economyEngine';
+import { useDeviceCategory } from '../hooks/useMediaQuery';
 
 interface TopBarProps {
   state: GameState;
@@ -37,6 +38,7 @@ interface TopBarProps {
   onToggleMute: () => void;
   viewMode: '3D' | '2D';
   onToggleViewMode: () => void;
+  deviceCategory?: 'mobile' | 'tablet' | 'desktop';
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -52,8 +54,14 @@ export const TopBar: React.FC<TopBarProps> = ({
   isMuted,
   onToggleMute,
   viewMode,
-  onToggleViewMode
+  onToggleViewMode,
+  deviceCategory
 }) => {
+  const detectedDevice = useDeviceCategory();
+  const effectiveCategory = deviceCategory || detectedDevice.category;
+  const isMobile = effectiveCategory === 'mobile';
+  const isTablet = effectiveCategory === 'tablet';
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const player = state.countries[state.playerCountryId];
   if (!player) return null;

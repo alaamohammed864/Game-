@@ -22,6 +22,7 @@ import {
   AlertCircle 
 } from 'lucide-react';
 import { Language, t } from '../utils/localization';
+import { useDeviceCategory } from '../hooks/useMediaQuery';
 
 interface SelectedProvincePanelProps {
   province: Province | null;
@@ -34,6 +35,7 @@ interface SelectedProvincePanelProps {
   onLaunchAttack: (fromProvinceId: string, targetProvinceId: string, unitIds: string[]) => void;
   onDeployRecon: (provinceId: string) => void;
   lang: Language;
+  deviceCategory?: 'mobile' | 'tablet' | 'desktop';
 }
 
 export const SelectedProvincePanel: React.FC<SelectedProvincePanelProps> = ({
@@ -46,8 +48,14 @@ export const SelectedProvincePanel: React.FC<SelectedProvincePanelProps> = ({
   onQueueMilitary,
   onLaunchAttack,
   onDeployRecon,
-  lang
+  lang,
+  deviceCategory
 }) => {
+  const detectedDevice = useDeviceCategory();
+  const effectiveCategory = deviceCategory || detectedDevice.category;
+  const isMobile = effectiveCategory === 'mobile';
+  const isTablet = effectiveCategory === 'tablet';
+
   if (!province) return null;
 
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'BUILD' | 'RECRUIT' | 'ATTACK'>('OVERVIEW');
@@ -83,9 +91,17 @@ export const SelectedProvincePanel: React.FC<SelectedProvincePanelProps> = ({
   };
 
   return (
-    <div className="fixed inset-x-0 bottom-16 sm:bottom-auto sm:top-14 sm:right-4 sm:left-auto w-full sm:w-96 max-h-[62vh] sm:max-h-[85vh] bg-slate-950/95 border border-slate-800 rounded-t-2xl sm:rounded-lg shadow-2xl z-30 flex flex-col overflow-hidden backdrop-blur-md">
-      {/* Mobile drag handle */}
-      <div className="w-10 h-1 bg-slate-700 rounded-full mx-auto my-1.5 sm:hidden shrink-0" />
+    <div className={`fixed z-30 flex flex-col overflow-hidden backdrop-blur-md bg-slate-950/95 border border-slate-800 shadow-2xl transition-all duration-200 ${
+      isMobile 
+        ? 'inset-x-0 bottom-16 rounded-t-2xl max-h-[64vh] text-xs' 
+        : isTablet
+        ? 'top-14 right-3 w-80 max-h-[82vh] rounded-lg text-xs'
+        : 'top-14 right-4 w-96 max-h-[85vh] rounded-lg text-xs'
+    }`}>
+      {/* Mobile drag handle for drawer menu */}
+      {isMobile && (
+        <div className="w-10 h-1 bg-slate-700 rounded-full mx-auto my-1.5 shrink-0" />
+      )}
       {/* Header */}
       <div 
         className="px-4 py-2.5 sm:py-3 border-b border-slate-800 flex items-center justify-between"

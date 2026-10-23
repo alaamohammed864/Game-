@@ -25,6 +25,7 @@ import { GeneralsModal } from './components/GeneralsModal';
 import { BottomFeed } from './components/BottomFeed';
 import { EventNotificationBanner } from './components/EventNotificationBanner';
 import { MobileBottomNav } from './components/MobileBottomNav';
+import { useDeviceCategory } from './hooks/useMediaQuery';
 
 export default function App() {
   const [gameState, setGameState] = useState<GameState>(gameStore.getState());
@@ -41,6 +42,18 @@ export default function App() {
   const [isEventModalOpen, setIsEventModalOpen] = useState<boolean>(false);
   const [activeEventIndex, setActiveEventIndex] = useState<number>(0);
   const [dismissedToastEventId, setDismissedToastEventId] = useState<string | null>(null);
+
+  // Dynamic device detection using useMediaQuery hook
+  const device = useDeviceCategory();
+
+  // Automatically adapt sidebar collapse state based on screen width
+  useEffect(() => {
+    if (device.isTablet) {
+      setIsNavCollapsed(true);
+    } else if (device.isDesktop) {
+      setIsNavCollapsed(false);
+    }
+  }, [device.isTablet, device.isDesktop]);
 
   // Subscribe to game store updates
   useEffect(() => {
@@ -164,7 +177,12 @@ export default function App() {
   const recentBattle = gameState.recentBattles[0];
 
   return (
-    <div className="w-screen h-screen flex flex-col bg-slate-950 text-slate-100 overflow-hidden relative select-none">
+    <div 
+      className={`w-screen h-screen flex flex-col bg-slate-950 text-slate-100 overflow-hidden relative select-none ${
+        device.isMobile ? 'text-xs' : 'text-sm'
+      }`}
+      data-device-category={device.category}
+    >
       {/* Top HUD Navigation Bar */}
       <TopBar
         state={gameState}
@@ -180,6 +198,7 @@ export default function App() {
         onToggleMute={handleToggleMute}
         viewMode={viewMode}
         onToggleViewMode={() => setViewMode(v => v === '3D' ? '2D' : '3D')}
+        deviceCategory={device.category}
       />
 
       {/* Non-intrusive Floating Directive Alert Banner (Never blocks gameplay) */}
@@ -260,6 +279,7 @@ export default function App() {
               }}
               onDeployRecon={(provId) => gameStore.conductSatelliteRecon(provId)}
               lang={lang}
+              deviceCategory={device.category}
             />
           )}
 

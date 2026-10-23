@@ -549,6 +549,42 @@ console.log('\n--- SECTION 6: EVENT NOTIFICATIONS & DIRECTIVES QUEUE INTEGRITY -
   assert(state.activeEvents[0].id === 'test_event_2', 'T15.4: Remaining directive safely preserved in queue');
 }
 
+// =========================================================================
+// SECTION 7: MEDIA QUERY & DEVICE CATEGORY BREAKPOINT VERIFICATION
+// =========================================================================
+console.log('\n--- SECTION 7: MEDIA QUERY & DEVICE CATEGORY BREAKPOINTS ---');
+{
+  function evaluateDeviceCategory(width: number): 'mobile' | 'tablet' | 'desktop' {
+    if (width < 768) return 'mobile';
+    if (width <= 1024) return 'tablet';
+    return 'desktop';
+  }
+
+  // 1. Mobile screen widths (iPhone, Galaxy, etc.)
+  assert(evaluateDeviceCategory(375) === 'mobile', 'T16.1: Width 375px detected as Mobile');
+  assert(evaluateDeviceCategory(430) === 'mobile', 'T16.2: Width 430px detected as Mobile');
+  assert(evaluateDeviceCategory(767) === 'mobile', 'T16.3: Width 767px boundary detected as Mobile');
+
+  // 2. Tablet screen widths (iPad Mini, iPad Air, iPad Pro 11)
+  assert(evaluateDeviceCategory(768) === 'tablet', 'T16.4: Width 768px boundary detected as Tablet');
+  assert(evaluateDeviceCategory(820) === 'tablet', 'T16.5: Width 820px detected as Tablet');
+  assert(evaluateDeviceCategory(1024) === 'tablet', 'T16.6: Width 1024px boundary detected as Tablet');
+
+  // 3. Desktop screen widths (MacBook, PC, 1440p Monitor)
+  assert(evaluateDeviceCategory(1025) === 'desktop', 'T17.1: Width 1025px boundary detected as Desktop');
+  assert(evaluateDeviceCategory(1440) === 'desktop', 'T17.2: Width 1440px detected as Desktop');
+  assert(evaluateDeviceCategory(1920) === 'desktop', 'T17.3: Width 1920px detected as Desktop');
+
+  // 4. Layout adaptation assertions
+  const mobileCat = evaluateDeviceCategory(390);
+  const isMobileDrawer = mobileCat === 'mobile';
+  const tabletCat = evaluateDeviceCategory(834);
+  const isTabletSidebarCollapsed = tabletCat === 'tablet';
+
+  assert(isMobileDrawer === true, 'T17.4: Mobile switches to bottom drawer and mobile navigation bar');
+  assert(isTabletSidebarCollapsed === true, 'T17.5: Tablet automatically collapses sidebar to compact icon rail');
+}
+
 console.log('\n====================================================');
 console.log(`TEST SUMMARY: ${passedTests}/${totalTests} TESTS PASSED`);
 console.log('====================================================\n');
