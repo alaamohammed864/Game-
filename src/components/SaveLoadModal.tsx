@@ -35,13 +35,13 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({
   const handleCreateSave = async () => {
     const name = newSaveName.trim() || `Campaign Turn ${currentState.currentTurn}`;
     const slotId = `slot_${Date.now()}`;
-    const ok = await storage.saveGame(slotId, name, currentState);
-    if (ok) {
+    const res = await storage.saveGame(slotId, name, currentState);
+    if (res.success) {
       setNewSaveName('');
-      setStatusMsg('Game saved successfully.');
+      setStatusMsg(lang === 'ar' ? 'تم حفظ الحملة بنجاح.' : 'Game saved successfully.');
       refreshSaves();
     } else {
-      setStatusMsg('Error saving game.');
+      setStatusMsg(res.message || (lang === 'ar' ? 'حدث خطأ أثناء حفظ اللعبة.' : 'Error saving game.'));
     }
   };
 
@@ -51,7 +51,7 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({
       onLoadState(loaded);
       onClose();
     } else {
-      setStatusMsg('Error loading save slot.');
+      setStatusMsg(lang === 'ar' ? 'فشل تحميل ملف الحفظ المحدد.' : 'Error loading save slot.');
     }
   };
 
@@ -73,12 +73,12 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({
 
   const handleImportJson = () => {
     if (!importJsonText.trim()) return;
-    const parsed = storage.importSaveJson(importJsonText);
-    if (parsed) {
-      onLoadState(parsed);
+    const res = storage.importSaveJson(importJsonText);
+    if (res.success && res.state) {
+      onLoadState(res.state);
       onClose();
     } else {
-      setStatusMsg('Invalid save JSON file structure.');
+      setStatusMsg(res.error || (lang === 'ar' ? 'بنية ملف الحفظ غير صالحة أو تالفة.' : 'Invalid save JSON file structure.'));
     }
   };
 

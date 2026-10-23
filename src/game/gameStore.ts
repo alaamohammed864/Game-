@@ -26,13 +26,14 @@ import { evaluateDiplomaticProposal } from '../diplomacy/diplomacyEngine';
 import { simulateCombatEngagement } from '../combat/combatEngine';
 import { storage } from '../storage/db';
 import { sound } from '../audio/soundSystem';
+import { ensureBilateralRelation, setBilateralDiplomaticStatus, validateWarDeclaration } from '../diplomacy/diplomacyUtils';
 
 type Listener = () => void;
 
 class GameStore {
   private state: GameState;
   private listeners: Set<Listener> = new Set();
-  private timer: number | null = null;
+  private timer: any = null;
   private autosaveCounter: number = 0;
 
   constructor() {
@@ -61,8 +62,16 @@ class GameStore {
       countries[id].isPlayer = (id === playerNationId);
     });
 
+    // Ensure all country bilateral relations are initialized symmetrically
+    const countryList = Object.values(countries);
+    for (let i = 0; i < countryList.length; i++) {
+      for (let j = i + 1; j < countryList.length; j++) {
+        ensureBilateralRelation(countryList[i], countryList[j]);
+      }
+    }
+
     const newState: GameState = {
-      version: '1.0.0',
+      version: '2.0.0',
       gameId: `gc_${Date.now()}`,
       currentTurn: 1,
       currentDate: 'OCTOBER 2026',
@@ -72,7 +81,10 @@ class GameStore {
       activeDifficulty: difficulty,
       isDevMode: false,
       fogOfWarRevealed: false,
+      unlimitedGoldDev: false,
       unlimitedResourcesDev: false,
+      instantBuildDev: false,
+      instantResearchDev: false,
       countries,
       provinces,
       constructionQueue: [],
@@ -99,6 +111,20 @@ class GameStore {
   }
 
   public loadSavedState(loadedState: GameState) {
+    // Deep validation & fallback defaults for dev flags
+    if (loadedState.unlimitedGoldDev === undefined) loadedState.unlimitedGoldDev = false;
+    if (loadedState.unlimitedResourcesDev === undefined) loadedState.unlimitedResourcesDev = false;
+    if (loadedState.instantBuildDev === undefined) loadedState.instantBuildDev = false;
+    if (loadedState.instantResearchDev === undefined) loadedState.instantResearchDev = false;
+
+    // Harmonize bilateral diplomacy
+    const countryList = Object.values(loadedState.countries);
+    for (let i = 0; i < countryList.length; i++) {
+      for (let j = i + 1; j < countryList.length; j++) {
+        ensureBilateralRelation(countryList[i], countryList[j]);
+      }
+    }
+
     this.state = loadedState;
     this.notify();
   }
@@ -119,27 +145,106 @@ class GameStore {
     this.notify();
   }
 
-  private restartLoop() {
-    if (this.timer) {
-      window.clearInterval(this.timer);
+  public stopLoop() {
+    if (this.timer !== null) {
+      if (typeof window !== 'undefined') {
+        window.clearInterval(this.timer);
+      } else {
+        clearInterval(this.timer);
+      }
       this.timer = null;
     }
+  }
+
+  private restartLoop() {
+    this.stopLoop();
     this.startLoop();
   }
 
   private startLoop() {
+    this.stopLoop();
     const intervalMs = Math.round(3500 / this.state.gameSpeed);
-    this.timer = window.setInterval(() => {
+    const ticker = () => {
       if (!this.state.isPaused) {
         this.advanceTurn();
       }
-    }, intervalMs);
+    };
+
+    if (typeof window !== 'undefined') {
+      this.timer = window.setInterval(ticker, intervalMs);
+    } else {
+      this.timer = setInterval(ticker, intervalMs);
+    }
+  }
+
+  public dispose() {
+    this.stopLoop();
+    this.listeners.clear();
+  }
+
+  // ============================================
+  // RESOURCE TRANSACTION ENGINE (CENTRALIZED)
+  // ============================================
+  public canAfford(countryId: string, costs: Partial<Record<ResourceKey, number>>): boolean {
+    const country = this.state.countries[countryId];
+    if (!country) return false;
+    const isPlayer = countryId === this.state.playerCountryId;
+
+    if (isPlayer && this.state.isDevMode && this.state.unlimitedResourcesDev) {
+      return true;
+    }
+
+    for (const [key, cost] of Object.entries(costs)) {
+      const resKey = key as ResourceKey;
+      const numCost = cost || 0;
+      if (numCost <= 0) continue;
+
+      if (resKey === 'gold' && isPlayer && this.state.isDevMode && (this.state.unlimitedGoldDev || this.state.unlimitedResourcesDev)) {
+        continue;
+      }
+
+      const available = country.resources[resKey] || 0;
+      if (available < numCost) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  public executeTransaction(countryId: string, costs: Partial<Record<ResourceKey, number>>): boolean {
+    if (!this.canAfford(countryId, costs)) return false;
+
+    const country = this.state.countries[countryId];
+    if (!country) return false;
+    const isPlayer = countryId === this.state.playerCountryId;
+
+    if (isPlayer && this.state.isDevMode && this.state.unlimitedResourcesDev) {
+      return true;
+    }
+
+    for (const [key, cost] of Object.entries(costs)) {
+      const resKey = key as ResourceKey;
+      const numCost = cost || 0;
+      if (numCost <= 0) continue;
+
+      if (resKey === 'gold' && isPlayer && this.state.isDevMode && (this.state.unlimitedGoldDev || this.state.unlimitedResourcesDev)) {
+        continue;
+      }
+
+      country.resources[resKey] = Math.max(0, Math.round((country.resources[resKey] || 0) - numCost));
+    }
+    return true;
   }
 
   // ============================================
   // MAIN GAME TURN SIMULATION LOOP (13 Steps)
   // ============================================
   public advanceTurn() {
+    this.advanceTurnInternal();
+    this.notify();
+  }
+
+  private advanceTurnInternal() {
     const s = this.state;
     s.currentTurn += 1;
 
@@ -159,10 +264,10 @@ class GameStore {
       // Apply resource updates
       const keys: ResourceKey[] = ['money', 'oil', 'steel', 'food', 'energy', 'rareMaterials', 'techPoints', 'manpower'];
       keys.forEach(k => {
-        country.resources[k] = Math.max(0, country.resources[k] + balance[k].net);
+        country.resources[k] = Math.max(0, Math.round(country.resources[k] + balance[k].net));
       });
 
-      // Gold interest or replenishment for player
+      // Gold replenishment for player in normal gameplay
       if (country.isPlayer && !s.isDevMode) {
         country.resources.gold += 1;
       }
@@ -242,12 +347,11 @@ class GameStore {
           country.currentResearch.progress += Math.max(25, country.resources.techPoints * 0.25);
           if (country.currentResearch.progress >= tech.cost) {
             country.completedTechs.push(tech.id);
-            const finishedTechId = country.currentResearch.techId;
             country.currentResearch = null;
 
             if (country.isPlayer) {
               s.notifications.unshift({
-                id: `tech_comp_${s.currentTurn}`,
+                id: `tech_comp_${s.currentTurn}_${tech.id}`,
                 turn: s.currentTurn,
                 type: 'RESEARCH',
                 title: 'Breakthrough Researched',
@@ -362,10 +466,8 @@ class GameStore {
     this.autosaveCounter += 1;
     if (this.autosaveCounter >= 5) {
       this.autosaveCounter = 0;
-      storage.saveGame('autosave', 'Autosave Slot', s, true);
+      storage.saveGame('autosave', 'Autosave Slot', s, true).catch(() => {});
     }
-
-    this.notify();
   }
 
   // ============================================
@@ -441,24 +543,19 @@ class GameStore {
     const currentLevel = existing ? existing.level : 0;
     if (currentLevel >= bDef.maxLevel) return false;
 
-    // Check cost (or bypass if dev mode infinite resources)
-    if (!s.isDevMode || !s.unlimitedResourcesDev) {
-      for (const [res, cost] of Object.entries(bDef.baseCost)) {
-        if ((player.resources[res as ResourceKey] || 0) < (cost || 0)) {
-          return false;
-        }
-      }
-      for (const [res, cost] of Object.entries(bDef.baseCost)) {
-        player.resources[res as ResourceKey] -= (cost || 0);
-      }
+    // Validate resource costs
+    if (!this.canAfford(s.playerCountryId, bDef.baseCost)) {
+      return false;
     }
 
-    if (s.isDevMode && s.unlimitedResourcesDev) {
-      // Instant build in dev mode!
+    const isInstant = s.isDevMode && (s.instantBuildDev || s.unlimitedResourcesDev);
+
+    if (isInstant) {
       if (existing) existing.level += 1;
       else prov.buildings.push({ type, level: 1 });
       sound.playSelect();
     } else {
+      this.executeTransaction(s.playerCountryId, bDef.baseCost);
       s.constructionQueue.push({
         id: `cq_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         provinceId,
@@ -478,7 +575,7 @@ class GameStore {
     const s = this.state;
     const prov = s.provinces[provinceId];
     const player = s.countries[s.playerCountryId];
-    if (!prov || !player || prov.countryId !== s.playerCountryId) return false;
+    if (!prov || !player || prov.countryId !== s.playerCountryId || count <= 0) return false;
 
     const uDef = UNIT_DEFINITIONS[unitType];
     if (!uDef) return false;
@@ -491,20 +588,19 @@ class GameStore {
       return false;
     }
 
-    // Cost check
-    if (!s.isDevMode || !s.unlimitedResourcesDev) {
-      for (const [res, cost] of Object.entries(uDef.cost)) {
-        if ((player.resources[res as ResourceKey] || 0) < ((cost || 0) * count)) {
-          return false;
-        }
-      }
-      for (const [res, cost] of Object.entries(uDef.cost)) {
-        player.resources[res as ResourceKey] -= ((cost || 0) * count);
-      }
+    // Multiply costs by count
+    const totalCost: Partial<Record<ResourceKey, number>> = {};
+    for (const [res, cost] of Object.entries(uDef.cost)) {
+      totalCost[res as ResourceKey] = (cost || 0) * count;
     }
 
-    if (s.isDevMode && s.unlimitedResourcesDev) {
-      // Instant spawn in dev mode
+    if (!this.canAfford(s.playerCountryId, totalCost)) {
+      return false;
+    }
+
+    const isInstant = s.isDevMode && (s.instantBuildDev || s.unlimitedResourcesDev);
+
+    if (isInstant) {
       const existing = prov.units.find(u => u.type === unitType);
       if (existing) existing.count += count;
       else {
@@ -519,6 +615,7 @@ class GameStore {
       }
       sound.playMarch();
     } else {
+      this.executeTransaction(s.playerCountryId, totalCost);
       s.militaryQueue.push({
         id: `mq_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         provinceId,
@@ -564,9 +661,8 @@ class GameStore {
     // Remove from source province
     fromProv.units = remainingUnits;
 
-    // Set diplomatic state to WAR if not already
-    player.relations[defenderCountry.id].status = 'WAR';
-    defenderCountry.relations[player.id].status = 'WAR';
+    // Harmonize bilateral diplomatic state to WAR safely
+    setBilateralDiplomaticStatus(player, defenderCountry, 'WAR', -50, s.currentTurn);
 
     // Execute battle
     const battle = simulateCombatEngagement({
@@ -596,12 +692,8 @@ class GameStore {
     if (!player || !targetProv) return false;
 
     const cost = 250;
-    if (player.resources.money < cost && (!s.isDevMode || !s.unlimitedResourcesDev)) {
+    if (!this.executeTransaction(s.playerCountryId, { money: cost })) {
       return false;
-    }
-
-    if (!s.isDevMode || !s.unlimitedResourcesDev) {
-      player.resources.money -= cost;
     }
 
     const hasIntelHQ = Object.values(s.provinces)
@@ -611,7 +703,6 @@ class GameStore {
     const targetCountry = s.countries[targetProv.countryId];
     const report = generateProvinceIntel(targetCountry, targetProv, s.currentTurn, hasIntelHQ);
 
-    // Save or update in state
     s.intelReports = s.intelReports.filter(r => r.targetProvinceId !== targetProvinceId);
     s.intelReports.unshift(report);
 
@@ -630,13 +721,13 @@ class GameStore {
     if (result.accepted) {
       sound.playSelect();
       if (proposal === 'ALLIANCE' || proposal === 'DEFENSIVE_PACT' || proposal === 'NON_AGGRESSION' || proposal === 'PEACE') {
-        player.relations[targetCountryId].status = proposal as any;
-        target.relations[player.id].status = proposal as any;
-        player.relations[targetCountryId].trustScore = Math.min(100, player.relations[targetCountryId].trustScore + 20);
-        target.relations[player.id].trustScore = Math.min(100, target.relations[player.id].trustScore + 20);
+        setBilateralDiplomaticStatus(player, target, proposal, 20, s.currentTurn);
       } else if (proposal === 'TRADE_DEAL') {
-        player.relations[targetCountryId].tradeAgreementActive = true;
-        target.relations[player.id].tradeAgreementActive = true;
+        const rels = ensureBilateralRelation(player, target);
+        if (rels) {
+          rels.relAtoB.tradeAgreementActive = true;
+          rels.relBtoA.tradeAgreementActive = true;
+        }
       }
     } else {
       sound.playAlertSiren();
@@ -652,14 +743,14 @@ class GameStore {
     const target = s.countries[targetCountryId];
     if (!player || !target) return;
 
-    player.relations[targetCountryId].status = 'WAR';
-    target.relations[player.id].status = 'WAR';
-    target.relations[player.id].trustScore = -80;
-    target.relations[player.id].memory.warsFought += 1;
+    const warVal = validateWarDeclaration(player, target);
+    if (!warVal.valid) return;
+
+    setBilateralDiplomaticStatus(player, target, 'WAR', -80, s.currentTurn);
 
     sound.playCombatExplosion();
     s.notifications.unshift({
-      id: `war_decl_${s.currentTurn}`,
+      id: `war_decl_${s.currentTurn}_${Date.now()}`,
       turn: s.currentTurn,
       type: 'DIPLOMACY',
       title: 'State of War Declared!',
@@ -679,6 +770,15 @@ class GameStore {
     // Check prerequisites
     for (const prereq of tech.prerequisites) {
       if (!player.completedTechs.includes(prereq)) return false;
+    }
+
+    // Dev mode instant research check
+    if (s.isDevMode && (s.instantResearchDev || s.unlimitedResourcesDev)) {
+      player.completedTechs.push(techId);
+      player.currentResearch = null;
+      sound.playTechResearched();
+      this.notify();
+      return true;
     }
 
     player.currentResearch = { techId, progress: 0 };
@@ -705,30 +805,30 @@ class GameStore {
   // ============================================
   public toggleDevMode() {
     this.state.isDevMode = !this.state.isDevMode;
-    if (this.state.isDevMode) {
-      // Unlimited gold indicator in dev mode
-      this.state.countries[this.state.playerCountryId].resources.gold = 999999;
-    }
+    sound.playSelect();
+    this.notify();
+  }
+
+  public setUnlimitedGoldDev(enabled: boolean) {
+    this.state.unlimitedGoldDev = enabled;
     sound.playSelect();
     this.notify();
   }
 
   public setUnlimitedResourcesDev(enabled: boolean) {
     this.state.unlimitedResourcesDev = enabled;
-    if (enabled) {
-      const p = this.state.countries[this.state.playerCountryId];
-      if (p) {
-        p.resources.money = 999999;
-        p.resources.oil = 999999;
-        p.resources.steel = 999999;
-        p.resources.food = 999999;
-        p.resources.energy = 999999;
-        p.resources.rareMaterials = 999999;
-        p.resources.techPoints = 999999;
-        p.resources.manpower = 999999;
-        p.resources.gold = 999999;
-      }
-    }
+    sound.playSelect();
+    this.notify();
+  }
+
+  public setInstantBuildDev(enabled: boolean) {
+    this.state.instantBuildDev = enabled;
+    sound.playSelect();
+    this.notify();
+  }
+
+  public setInstantResearchDev(enabled: boolean) {
+    this.state.instantResearchDev = enabled;
     sound.playSelect();
     this.notify();
   }
@@ -816,9 +916,10 @@ class GameStore {
     if (!general) return false;
 
     const goldCost = 20;
-    if (player.resources.gold < goldCost && !this.state.isDevMode) return false;
+    if (!this.executeTransaction(this.state.playerCountryId, { gold: goldCost })) {
+      return false;
+    }
 
-    if (!this.state.isDevMode) player.resources.gold -= goldCost;
     general.level += 1;
     general.attackBonus += 0.05;
     general.defenseBonus += 0.05;
@@ -886,8 +987,7 @@ class GameStore {
 
     const targetCountry = s.countries[targetProv.countryId];
     if (targetCountry) {
-      targetCountry.relations[player.id].status = 'WAR';
-      player.relations[targetCountry.id].status = 'WAR';
+      setBilateralDiplomaticStatus(player, targetCountry, 'WAR', -50, s.currentTurn);
     }
 
     s.notifications.unshift({
@@ -909,8 +1009,9 @@ class GameStore {
 
   public devAdvanceTurns(count: number) {
     for (let i = 0; i < count; i++) {
-      this.advanceTurn();
+      this.advanceTurnInternal();
     }
+    this.notify();
   }
 
   public devSwitchCountry(countryId: string) {

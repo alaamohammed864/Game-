@@ -69,8 +69,13 @@ export const TopBar: React.FC<TopBarProps> = ({
     isCritical: boolean = false
   ) => {
     const value = player.resources[key];
-    const net = balance[key]?.net || 0;
-    const isUnlimited = state.isDevMode && key === 'gold';
+    const net = key !== 'gold' ? (balance[key as keyof typeof balance]?.net ?? 0) : 0;
+    const isUnlimited = Boolean(
+      state.isDevMode && (
+        (key === 'gold' && (state.unlimitedGoldDev || state.unlimitedResourcesDev)) ||
+        (key !== 'gold' && state.unlimitedResourcesDev)
+      )
+    );
 
     return (
       <div 

@@ -385,7 +385,10 @@ export interface GameState {
   activeDifficulty: AIDifficulty;
   isDevMode: boolean;
   fogOfWarRevealed: boolean;
+  unlimitedGoldDev?: boolean;
   unlimitedResourcesDev: boolean;
+  instantBuildDev?: boolean;
+  instantResearchDev?: boolean;
   countries: Record<string, Country>;
   provinces: Record<string, Province>;
   constructionQueue: ConstructionQueueItem[];

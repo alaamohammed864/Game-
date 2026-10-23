@@ -196,6 +196,8 @@ export default function App() {
               onSelectProvince={handleSelectProvince}
               playerCountryId={gameState.playerCountryId}
               isPaused={gameState.isPaused}
+              recentBattles={gameState.recentBattles}
+              currentTurn={gameState.currentTurn}
             />
           ) : (
             <Tactical2DMap
@@ -204,6 +206,8 @@ export default function App() {
               selectedProvinceId={selectedProvinceId}
               onSelectProvince={handleSelectProvince}
               playerCountryId={gameState.playerCountryId}
+              recentBattles={gameState.recentBattles}
+              currentTurn={gameState.currentTurn}
             />
           )}
 
@@ -344,7 +348,10 @@ export default function App() {
           state={gameState}
           onClose={() => setIsDevConsoleOpen(false)}
           onToggleDevMode={() => gameStore.toggleDevMode()}
+          onToggleUnlimitedGold={(en) => gameStore.setUnlimitedGoldDev(en)}
           onToggleUnlimitedResources={(en) => gameStore.setUnlimitedResourcesDev(en)}
+          onToggleInstantBuild={(en) => gameStore.setInstantBuildDev(en)}
+          onToggleInstantResearch={(en) => gameStore.setInstantResearchDev(en)}
           onToggleFog={() => gameStore.toggleFogOfWarDev()}
           onAddResources={() => gameStore.devAddResources(50000)}
           onCompleteResearch={() => gameStore.devCompleteAllResearch()}

@@ -6,14 +6,20 @@ import {
   ConstructionQueueItem, 
   MilitaryQueueItem,
   DiplomaticStatus,
-  GameNotification
+  GameNotification,
+  BuildingType
 } from '../types';
-import { BUILDING_DEFINITIONS, UNIT_DEFINITIONS, AI_DIFFICULTY_MODIFIERS } from '../game/config';
+import { BUILDING_DEFINITIONS, UNIT_DEFINITIONS, AI_DIFFICULTY_MODIFIERS, TECH_TREE } from '../game/config';
 import { simulateCombatEngagement } from '../combat/combatEngine';
+import { ensureBilateralRelation, setBilateralDiplomaticStatus, validateWarDeclaration } from '../diplomacy/diplomacyUtils';
 
 export interface AIExecutionResult {
   newBattles: BattleReport[];
   notifications: GameNotification[];
+}
+
+export interface AIOptions {
+  rng?: () => number; // Optional deterministic random generator for testing
 }
 
 export function processAITurn(
@@ -22,8 +28,10 @@ export function processAITurn(
   countries: Record<string, Country>,
   provinces: Record<string, Province>,
   constructionQueue: ConstructionQueueItem[],
-  militaryQueue: MilitaryQueueItem[]
+  militaryQueue: MilitaryQueueItem[],
+  options: AIOptions = {}
 ): AIExecutionResult {
+  const rng = options.rng || Math.random;
   const country = countries[countryId];
   if (!country || !country.isAlive || country.isPlayer) {
     return { newBattles: [], notifications: [] };
@@ -35,7 +43,7 @@ export function processAITurn(
   };
 
   const diffConfig = AI_DIFFICULTY_MODIFIERS[country.aiProfile.difficulty] || AI_DIFFICULTY_MODIFIERS.NORMAL;
-  const personality = country.aiProfile.personality;
+  const personality = country.aiProfile.personality || 'Balanced';
   const ownedProvinces = Object.values(provinces).filter(p => p.countryId === countryId);
 
   if (ownedProvinces.length === 0) {
@@ -44,9 +52,8 @@ export function processAITurn(
   }
 
   // ==========================================
-  // 1. OBSERVE & ANALYZE
+  // 1. OBSERVE & ANALYZE NEIGHBORS & THREATS
   // ==========================================
-  // Find neighboring foreign provinces
   const neighborProvIds = new Set<string>();
   ownedProvinces.forEach(p => {
     p.neighborIds.forEach(nId => {
@@ -57,10 +64,14 @@ export function processAITurn(
     });
   });
 
-  const neighboringProvinces = Array.from(neighborProvIds).map(id => provinces[id]);
-  const neighboringCountryIds = Array.from(new Set(neighboringProvinces.map(p => p.countryId)));
+  const neighboringProvinces = Array.from(neighborProvIds)
+    .map(id => provinces[id])
+    .filter((p): p is Province => Boolean(p));
 
-  // Calculate military strength of this nation vs neighbors
+  const neighboringCountryIds = Array.from(new Set(neighboringProvinces.map(p => p.countryId)))
+    .filter(id => Boolean(countries[id]));
+
+  // Calculate military strength of this nation
   let ourTotalUnits = 0;
   let ourTotalAttack = 0;
   let ourTotalDefense = 0;
@@ -75,61 +86,96 @@ export function processAITurn(
     });
   });
 
-  // ==========================================
-  // 2. EVALUATE THREATS & MEMORY
-  // ==========================================
+  // Evaluate relations & threats for all neighbors
   neighboringCountryIds.forEach(targetId => {
     const targetCountry = countries[targetId];
     if (!targetCountry || !targetCountry.isAlive) return;
 
-    let relation = country.relations[targetId];
-    if (!relation) {
-      relation = {
-        targetCountryId: targetId,
-        status: 'PEACE',
-        trustScore: 0,
-        relationScore: 0,
-        threatPerception: 30,
-        militaryAccess: false,
-        tradeAgreementActive: false,
-        memory: {
-          warsFought: 0,
-          betrayals: 0,
-          treatiesKept: 0,
-          tradeVolume: 0,
-          lastAggressionTurn: -1,
-          summary: 'Diplomatic baseline.'
-        }
-      };
-      country.relations[targetId] = relation;
-    }
+    const rels = ensureBilateralRelation(country, targetCountry);
+    if (!rels) return;
+    const { relAtoB: relation, relBtoA: targetRelation } = rels;
 
-    // Threat perception increases if target has large military near border
+    // Threat perception based on neighbor border troops and historical memory
     const targetBorderUnits = neighboringProvinces
       .filter(p => p.countryId === targetId)
       .reduce((sum, p) => sum + p.units.reduce((s, u) => s + u.count, 0), 0);
 
-    const memoryHostilityPenalty = relation.memory.warsFought * 20 + relation.memory.betrayals * 35;
-    const baseThreat = Math.min(100, (targetBorderUnits * 8 + memoryHostilityPenalty) * diffConfig.threatEvaluationWeight);
+    const memoryHostilityPenalty = relation.memory.warsFought * 15 + relation.memory.betrayals * 25;
+    const baseThreat = Math.min(100, (targetBorderUnits * 6 + memoryHostilityPenalty) * diffConfig.threatEvaluationWeight);
     relation.threatPerception = Math.round(baseThreat);
 
-    // Opportunistic or Aggressive AI considers declaring war if weak target and low trust
+    // DIPLOMATIC PEACE / ARMISTICE INITIATIVE:
+    // If at war, diplomatic or weak nations may sue for peace if losing heavily
+    if (relation.status === 'WAR') {
+      const shouldSeekPeace = 
+        (personality === 'Diplomatic' && relation.trustScore > -60) ||
+        (country.totalLosses > country.totalKills * 1.8 && ourTotalUnits < 8) ||
+        (personality === 'Economic' && country.resources.money < 1000);
+
+      if (shouldSeekPeace && rng() < 0.25) {
+        setBilateralDiplomaticStatus(country, targetCountry, 'PEACE', 15, turn);
+        result.notifications.push({
+          id: `ai_peace_${turn}_${countryId}_${targetId}`,
+          turn,
+          type: 'DIPLOMACY',
+          title: `Armistice Signed: ${country.name}`,
+          message: `${country.name} and ${targetCountry.name} have concluded an armistice and ended hostilities.`,
+          countryId
+        });
+      }
+    }
+
+    // TRADE AGREEMENT INITIATIVE:
+    // Peaceful Economic or Diplomatic nations seek bilateral commerce
     if (
+      relation.status === 'PEACE' && 
+      !relation.tradeAgreementActive && 
+      (personality === 'Economic' || personality === 'Diplomatic') &&
+      relation.trustScore >= 10 &&
+      rng() < 0.20
+    ) {
+      relation.tradeAgreementActive = true;
+      targetRelation.tradeAgreementActive = true;
+      relation.trustScore = Math.min(100, relation.trustScore + 10);
+      targetRelation.trustScore = Math.min(100, targetRelation.trustScore + 10);
+      result.notifications.push({
+        id: `ai_trade_${turn}_${countryId}_${targetId}`,
+        turn,
+        type: 'DIPLOMACY',
+        title: `Bilateral Trade: ${country.name}`,
+        message: `${country.name} and ${targetCountry.name} ratified a mutual commerce pact.`,
+        countryId
+      });
+    }
+
+    // WAR DECLARATION LOGIC:
+    // Check if war declaration is permitted and desired
+    const warValidation = validateWarDeclaration(country, targetCountry);
+    if (
+      warValidation.valid &&
       relation.status !== 'WAR' &&
       relation.status !== 'ALLIANCE' &&
-      relation.status !== 'NON_AGGRESSION' &&
-      (personality === 'Aggressive' || personality === 'Expansionist' || personality === 'Opportunistic')
+      relation.status !== 'DEFENSIVE_PACT' &&
+      relation.status !== 'NON_AGGRESSION'
     ) {
-      const aggressionThreshold = personality === 'Aggressive' ? 0.35 : personality === 'Expansionist' ? 0.5 : 0.65;
-      if (ourTotalAttack > (targetBorderUnits * 30 + 100) && Math.random() < (country.aiProfile.aggressionRate * 0.15)) {
-        relation.status = 'WAR';
-        targetCountry.relations[countryId].status = 'WAR';
+      // Personality-derived war threshold
+      let aggressionScore = country.aiProfile.aggressionRate;
+      if (personality === 'Aggressive') aggressionScore += 0.35;
+      else if (personality === 'Expansionist') aggressionScore += 0.20;
+      else if (personality === 'Opportunistic') aggressionScore += 0.15;
+      else if (personality === 'Defensive') aggressionScore -= 0.30;
+      else if (personality === 'Diplomatic') aggressionScore -= 0.40;
+
+      const powerAdvantage = ourTotalAttack / Math.max(1, targetBorderUnits * 25 + 50);
+
+      if (aggressionScore > 0.45 && powerAdvantage >= 1.2 && rng() < (aggressionScore * 0.12)) {
+        setBilateralDiplomaticStatus(country, targetCountry, 'WAR', -50, turn);
         result.notifications.push({
           id: `war_decl_${turn}_${countryId}_${targetId}`,
           turn,
           type: 'DIPLOMACY',
-          title: `War Declaration: ${country.name}`,
-          message: `${country.name} has officially declared sovereign war against ${targetCountry.name}!`,
+          title: `Declaration of War: ${country.name}`,
+          message: `${country.name} has formally declared sovereign war against ${targetCountry.name}!`,
           countryId
         });
       }
@@ -137,36 +183,37 @@ export function processAITurn(
   });
 
   // ==========================================
-  // 3. ECONOMIC DECISIONS (BUILDINGS)
+  // 2. ECONOMIC & INFRASTRUCTURE DECISIONS
   // ==========================================
-  // If we have resources and open construction slots, build necessary infrastructure
   const activeQueuesForCountry = constructionQueue.filter(q => {
     const prov = provinces[q.provinceId];
     return prov && prov.countryId === countryId;
   }).length;
 
-  if (activeQueuesForCountry < ownedProvinces.length && country.resources.money > 1200) {
-    // Determine greatest resource bottleneck
-    let neededBuilding: any = 'farm';
-    if (country.resources.food < 1500) {
+  if (activeQueuesForCountry < ownedProvinces.length && country.resources.money > 1000) {
+    let neededBuilding: BuildingType = 'farm';
+
+    // Prioritize by personality doctrine & bottlenecks
+    if (personality === 'Defensive') {
+      neededBuilding = country.resources.energy < 800 ? 'power_plant' : 'military_base';
+    } else if (personality === 'Economic') {
+      neededBuilding = country.resources.money < 2500 ? 'factory' : country.resources.steel < 1200 ? 'steel_plant' : 'farm';
+    } else if (country.resources.food < 1200) {
       neededBuilding = 'farm';
-    } else if (country.resources.oil < 1200) {
+    } else if (country.resources.oil < 1000) {
       neededBuilding = 'oil_field';
-    } else if (country.resources.energy < 1000) {
+    } else if (country.resources.energy < 800) {
       neededBuilding = 'power_plant';
-    } else if (country.resources.steel < 1000) {
+    } else if (country.resources.steel < 800) {
       neededBuilding = 'steel_plant';
-    } else if (country.resources.money < 3000) {
-      neededBuilding = 'factory';
-    } else if (country.completedTechs.length < 6) {
+    } else if (country.completedTechs.length < 5) {
       neededBuilding = 'research_center';
-    } else if (personality === 'Defensive' || personality === 'Aggressive') {
-      neededBuilding = 'military_base';
+    } else {
+      neededBuilding = 'factory';
     }
 
-    const bDef = BUILDING_DEFINITIONS[neededBuilding as keyof typeof BUILDING_DEFINITIONS];
+    const bDef = BUILDING_DEFINITIONS[neededBuilding];
     if (bDef) {
-      // Find suitable province without maxed building
       const candidateProv = ownedProvinces.find(p => {
         const existing = p.buildings.find(b => b.type === neededBuilding);
         return !existing || existing.level < bDef.maxLevel;
@@ -174,20 +221,25 @@ export function processAITurn(
 
       if (candidateProv) {
         let canAfford = true;
-        Object.entries(bDef.baseCost).forEach(([res, cost]) => {
-          if ((country.resources[res as keyof typeof country.resources] || 0) < (cost || 0)) {
+        for (const [res, cost] of Object.entries(bDef.baseCost)) {
+          const available = country.resources[res as keyof typeof country.resources] || 0;
+          if (available < (cost || 0)) {
             canAfford = false;
+            break;
           }
-        });
+        }
 
         if (canAfford) {
-          Object.entries(bDef.baseCost).forEach(([res, cost]) => {
-            country.resources[res as keyof typeof country.resources] -= (cost || 0);
-          });
+          for (const [res, cost] of Object.entries(bDef.baseCost)) {
+            country.resources[res as keyof typeof country.resources] = Math.max(
+              0,
+              (country.resources[res as keyof typeof country.resources] || 0) - (cost || 0)
+            );
+          }
           const existing = candidateProv.buildings.find(b => b.type === neededBuilding);
           const nextLevel = existing ? existing.level + 1 : 1;
           constructionQueue.push({
-            id: `cq_ai_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            id: `cq_ai_${turn}_${countryId}_${candidateProv.id}_${neededBuilding}`,
             provinceId: candidateProv.id,
             type: neededBuilding,
             targetLevel: nextLevel,
@@ -200,18 +252,23 @@ export function processAITurn(
   }
 
   // ==========================================
-  // 4. MILITARY RECRUITMENT DECISIONS
+  // 3. MILITARY RECRUITMENT DECISIONS
   // ==========================================
   const activeMilQueues = militaryQueue.filter(q => {
     const prov = provinces[q.provinceId];
     return prov && prov.countryId === countryId;
   }).length;
 
-  if (activeMilQueues < 3 && country.resources.manpower > 2500 && country.resources.money > 1500) {
+  if (activeMilQueues < 3 && country.resources.manpower > 2000 && country.resources.money > 1200) {
     let unitToBuild: UnitType = 'infantry';
-    if (country.resources.steel > 1200 && country.resources.oil > 800) {
-      unitToBuild = Math.random() > 0.4 ? 'armored_units' : 'mechanized_infantry';
-    } else if (country.resources.energy > 600 && Math.random() > 0.5) {
+
+    if (personality === 'Aggressive') {
+      unitToBuild = country.resources.steel > 1000 && country.resources.oil > 600 ? 'armored_units' : 'artillery';
+    } else if (personality === 'Defensive') {
+      unitToBuild = country.resources.energy > 400 ? 'air_defense' : 'infantry';
+    } else if (country.resources.steel > 1200 && country.resources.oil > 800) {
+      unitToBuild = rng() > 0.4 ? 'armored_units' : 'mechanized_infantry';
+    } else if (country.resources.energy > 600 && rng() > 0.5) {
       unitToBuild = 'drones';
     } else {
       unitToBuild = 'infantry';
@@ -220,19 +277,24 @@ export function processAITurn(
     const uDef = UNIT_DEFINITIONS[unitToBuild];
     if (uDef) {
       let canAfford = true;
-      Object.entries(uDef.cost).forEach(([res, cost]) => {
-        if ((country.resources[res as keyof typeof country.resources] || 0) < (cost || 0)) {
+      for (const [res, cost] of Object.entries(uDef.cost)) {
+        const available = country.resources[res as keyof typeof country.resources] || 0;
+        if (available < (cost || 0)) {
           canAfford = false;
+          break;
         }
-      });
+      }
 
       if (canAfford) {
-        Object.entries(uDef.cost).forEach(([res, cost]) => {
-          country.resources[res as keyof typeof country.resources] -= (cost || 0);
-        });
-        const spawnProv = ownedProvinces[0]; // deploy in primary/capital province
+        for (const [res, cost] of Object.entries(uDef.cost)) {
+          country.resources[res as keyof typeof country.resources] = Math.max(
+            0,
+            (country.resources[res as keyof typeof country.resources] || 0) - (cost || 0)
+          );
+        }
+        const spawnProv = ownedProvinces[0];
         militaryQueue.push({
-          id: `mq_ai_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          id: `mq_ai_${turn}_${countryId}_${unitToBuild}_${Date.now()}`,
           provinceId: spawnProv.id,
           unitType: unitToBuild,
           count: 1,
@@ -244,16 +306,15 @@ export function processAITurn(
   }
 
   // ==========================================
-  // 5. COMBAT & INVASION EXECUTION
+  // 4. COMBAT & INVASION EXECUTION
   // ==========================================
-  // Find if country is at war with any neighbor
   const hostileNeighborProvs = neighboringProvinces.filter(p => {
     const rel = country.relations[p.countryId];
     return rel && rel.status === 'WAR';
   });
 
   if (hostileNeighborProvs.length > 0) {
-    // Pick the most vulnerable hostile border province
+    // Select best tactical target
     const targetProv = hostileNeighborProvs.reduce((prev, curr) => {
       const prevDef = curr.units.reduce((s, u) => s + u.count, 0) + curr.defenseLevel * 2;
       const currDef = prev.units.reduce((s, u) => s + u.count, 0) + prev.defenseLevel * 2;
@@ -264,7 +325,6 @@ export function processAITurn(
     const stagingProv = ownedProvinces.find(p => p.neighborIds.includes(targetProv.id) && p.units.length > 0);
 
     if (stagingProv && stagingProv.units.length > 0) {
-      // Assess our attack power vs their defense
       const ourStagingAttack = stagingProv.units.reduce((sum, u) => {
         const def = UNIT_DEFINITIONS[u.type];
         return sum + (def ? def.attack * u.count : 0);
@@ -275,10 +335,8 @@ export function processAITurn(
         return sum + (def ? def.defense * u.count : 0);
       }, 0) + targetProv.defenseLevel * 40;
 
-      // Only attack if confident ratio or aggressive personality
-      const minRatio = personality === 'Aggressive' ? 1.05 : 1.35;
+      const minRatio = personality === 'Aggressive' ? 1.05 : personality === 'Expansionist' ? 1.20 : 1.35;
       if (ourStagingAttack >= theirEstDefense * minRatio) {
-        // Send up to 70% of staging units to attack, keep 30% garrison
         const unitsToAttack: any[] = [];
         const unitsRemaining: any[] = [];
 
@@ -293,40 +351,52 @@ export function processAITurn(
 
         stagingProv.units = unitsRemaining;
 
-        const battle = simulateCombatEngagement({
-          turn,
-          attackerCountry: country,
-          defenderCountry: countries[targetProv.countryId],
-          targetProvince: targetProv,
-          attackingUnits: unitsToAttack,
-          sourceProvinceId: stagingProv.id
-        });
+        const defenderCountry = countries[targetProv.countryId];
+        if (defenderCountry) {
+          const battle = simulateCombatEngagement({
+            turn,
+            attackerCountry: country,
+            defenderCountry,
+            targetProvince: targetProv,
+            attackingUnits: unitsToAttack,
+            sourceProvinceId: stagingProv.id
+          });
 
-        result.newBattles.push(battle);
+          result.newBattles.push(battle);
 
-        result.notifications.push({
-          id: `combat_notif_${turn}_${Date.now()}`,
-          turn,
-          type: 'COMBAT',
-          title: `Battle of ${targetProv.name}`,
-          message: `${country.name} launched an assault on ${targetProv.name}! Victor: ${battle.victor === 'ATTACKER' ? country.name : countries[targetProv.countryId]?.name}.`,
-          provinceId: targetProv.id,
-          countryId
-        });
+          result.notifications.push({
+            id: `combat_notif_${turn}_${Date.now()}_${targetProv.id}`,
+            turn,
+            type: 'COMBAT',
+            title: `Battle of ${targetProv.name}`,
+            message: `${country.name} launched an assault on ${targetProv.name}! Victor: ${battle.victor === 'ATTACKER' ? country.name : defenderCountry.name}.`,
+            provinceId: targetProv.id,
+            countryId
+          });
+        }
       }
     }
   }
 
   // ==========================================
-  // 6. RESEARCH PROGRESSION
+  // 5. RESEARCH PROGRESSION
   // ==========================================
   if (!country.currentResearch && country.resources.techPoints >= 100) {
-    // Pick an unresearched tech
-    const availableTechs = ['tech_composite_armor', 'tech_stealth_avionics', 'tech_deep_petroleum_drilling', 'tech_supercomputing', 'tech_logistics_optimization', 'tech_hardened_bunkers']
-      .filter(t => !country.completedTechs.includes(t));
-    if (availableTechs.length > 0) {
-      const chosen = availableTechs[0];
-      country.currentResearch = { techId: chosen, progress: 0 };
+    const uncompletedTechs = TECH_TREE.filter(t => !country.completedTechs.includes(t.id));
+    if (uncompletedTechs.length > 0) {
+      // Prioritize tech matching doctrine
+      let chosenTech = uncompletedTechs[0];
+      if (personality === 'Defensive') {
+        const defTech = uncompletedTechs.find(t => t.id === 'tech_hardened_bunkers' || t.category === 'INFRASTRUCTURE');
+        if (defTech) chosenTech = defTech;
+      } else if (personality === 'Economic') {
+        const econTech = uncompletedTechs.find(t => t.category === 'ECONOMY');
+        if (econTech) chosenTech = econTech;
+      } else if (personality === 'Aggressive') {
+        const milTech = uncompletedTechs.find(t => t.category === 'MILITARY');
+        if (milTech) chosenTech = milTech;
+      }
+      country.currentResearch = { techId: chosenTech.id, progress: 0 };
     }
   }
 

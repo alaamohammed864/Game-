@@ -20,7 +20,10 @@ interface DevConsoleModalProps {
   state: GameState;
   onClose: () => void;
   onToggleDevMode: () => void;
+  onToggleUnlimitedGold: (enabled: boolean) => void;
   onToggleUnlimitedResources: (enabled: boolean) => void;
+  onToggleInstantBuild: (enabled: boolean) => void;
+  onToggleInstantResearch: (enabled: boolean) => void;
   onToggleFog: () => void;
   onAddResources: () => void;
   onCompleteResearch: () => void;
@@ -36,7 +39,10 @@ export const DevConsoleModal: React.FC<DevConsoleModalProps> = ({
   state,
   onClose,
   onToggleDevMode,
+  onToggleUnlimitedGold,
   onToggleUnlimitedResources,
+  onToggleInstantBuild,
+  onToggleInstantResearch,
   onToggleFog,
   onAddResources,
   onCompleteResearch,
@@ -102,7 +108,29 @@ export const DevConsoleModal: React.FC<DevConsoleModalProps> = ({
 
           {/* Quick Cheat Actions */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {/* Infinite Resources */}
+            {/* Unlimited Gold (Dedicated Sandbox Toggle) */}
+            <button
+              onClick={() => onToggleUnlimitedGold(!state.unlimitedGoldDev)}
+              className={`p-3 rounded border text-left flex items-start gap-3 transition-colors ${
+                state.unlimitedGoldDev
+                  ? 'bg-amber-950/50 border-amber-400 text-amber-200 shadow-[0_0_15px_rgba(245,158,11,0.2)]'
+                  : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-850'
+              }`}
+            >
+              <Coins className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <strong className="block text-white text-xs">
+                  {lang === 'ar' ? 'ذهب غير محدود (∞)' : 'Unlimited Gold (∞)'}: {state.unlimitedGoldDev ? (lang === 'ar' ? 'مفعل' : 'ENABLED') : (lang === 'ar' ? 'معطل' : 'OFF')}
+                </strong>
+                <span className="text-[10px] text-slate-400">
+                  {lang === 'ar' 
+                    ? 'يمنح رصيداً لا نهائياً من الذهب دون إنقاص الخزينة عند الترقية أو النفقات.' 
+                    : 'Permits gold transactions without deduction and displays (∞) in HUD.'}
+                </span>
+              </div>
+            </button>
+
+            {/* Infinite Stockpiles (All Resources) */}
             <button
               onClick={() => onToggleUnlimitedResources(!state.unlimitedResourcesDev)}
               className={`p-3 rounded border text-left flex items-start gap-3 transition-colors ${
@@ -111,11 +139,55 @@ export const DevConsoleModal: React.FC<DevConsoleModalProps> = ({
                   : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-850'
               }`}
             >
-              <Coins className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+              <Flame className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
               <div>
-                <strong className="block text-white text-xs">Toggle Infinite Stockpiles</strong>
+                <strong className="block text-white text-xs">
+                  {lang === 'ar' ? 'مخزونات لا نهائية لكافة الموارد' : 'Toggle Infinite Stockpiles'}
+                </strong>
                 <span className="text-[10px] text-slate-400">
-                  Sets Money, Oil, Steel, Food, Manpower to 999,999 and instant build.
+                  {lang === 'ar'
+                    ? 'تخطي تكاليف المال والنفط والصلب والمؤن والطاقة وتفعيل البناء الفوري.'
+                    : 'Bypasses costs for all resources (Money, Oil, Steel, Food, Manpower).'}
+                </span>
+              </div>
+            </button>
+
+            {/* Instant Construction Toggle */}
+            <button
+              onClick={() => onToggleInstantBuild(!state.instantBuildDev)}
+              className={`p-3 rounded border text-left flex items-start gap-3 transition-colors ${
+                state.instantBuildDev
+                  ? 'bg-cyan-950/40 border-cyan-400 text-cyan-200'
+                  : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-850'
+              }`}
+            >
+              <Zap className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <strong className="block text-white text-xs">
+                  {t('instant_build', lang)}: {state.instantBuildDev ? (lang === 'ar' ? 'مفعل' : 'ON') : (lang === 'ar' ? 'معطل' : 'OFF')}
+                </strong>
+                <span className="text-[10px] text-slate-400">
+                  {lang === 'ar' ? 'تشييد وترقية المباني وتجنيد الأفواج في صفر دورات.' : 'Construct buildings and deploy military units instantly.'}
+                </span>
+              </div>
+            </button>
+
+            {/* Instant Research Toggle */}
+            <button
+              onClick={() => onToggleInstantResearch(!state.instantResearchDev)}
+              className={`p-3 rounded border text-left flex items-start gap-3 transition-colors ${
+                state.instantResearchDev
+                  ? 'bg-purple-950/40 border-purple-400 text-purple-200'
+                  : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-850'
+              }`}
+            >
+              <Cpu className="w-5 h-5 text-purple-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <strong className="block text-white text-xs">
+                  {t('instant_research', lang)}: {state.instantResearchDev ? (lang === 'ar' ? 'مفعل' : 'ON') : (lang === 'ar' ? 'معطل' : 'OFF')}
+                </strong>
+                <span className="text-[10px] text-slate-400">
+                  {lang === 'ar' ? 'فتح أي تقنية فور النقر عليها دون انتظار دورات البحث.' : 'Complete any selected technological doctrine in 0 turns.'}
                 </span>
               </div>
             </button>

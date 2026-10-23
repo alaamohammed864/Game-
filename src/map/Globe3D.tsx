@@ -1,7 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { Country, Province } from '../types';
+import { BattleReport, Country, Province } from '../types';
+import { evaluateProvinceUnitState, ProvinceUnitState } from '../utils/unitState';
 
 interface Globe3DProps {
   provinces: Record<string, Province>;
@@ -10,6 +11,18 @@ interface Globe3DProps {
   onSelectProvince: (provinceId: string) => void;
   playerCountryId: string;
   isPaused: boolean;
+  recentBattles?: BattleReport[];
+  currentTurn?: number;
+}
+
+interface PulsingMeshItem {
+  mesh: THREE.Mesh;
+  type: 'combat' | 'fuel' | 'general' | 'selected';
+  baseScale: number;
+  maxScale: number;
+  speed: number;
+  phase: number;
+  baseOpacity: number;
 }
 
 export const Globe3D: React.FC<Globe3DProps> = ({
@@ -18,7 +31,9 @@ export const Globe3D: React.FC<Globe3DProps> = ({
   selectedProvinceId,
   onSelectProvince,
   playerCountryId,
-  isPaused
+  isPaused,
+  recentBattles = [],
+  currentTurn = 1
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -26,14 +41,13 @@ export const Globe3D: React.FC<Globe3DProps> = ({
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const globeGroupRef = useRef<THREE.Group | null>(null);
   const markersGroupRef = useRef<THREE.Group | null>(null);
+  const pulsingMeshesRef = useRef<PulsingMeshItem[]>([]);
   const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster());
   const mouseRef = useRef<THREE.Vector2>(new THREE.Vector2());
   const isDraggingRef = useRef<boolean>(false);
   const previousMousePositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const targetRotationRef = useRef<{ x: number; y: number }>({ x: 0.2, y: 0 });
   const zoomDistanceRef = useRef<number>(2.4);
-
-  // Helper to convert lat/lng to 3D sphere coordinates
   const latLngToVector3 = (lat: number, lng: number, radius: number): THREE.Vector3 => {
     const phi = (90 - lat) * (Math.PI / 180);
     const theta = (lng + 180) * (Math.PI / 180);
@@ -308,6 +322,21 @@ export const Globe3D: React.FC<Globe3DProps> = ({
         }
       }
 
+      // Dynamic unit-state indicator pulses (under fire, low fuel, general aura, selection)
+      const elapsedTime = clock.getElapsedTime();
+      const pulseItems = pulsingMeshesRef.current;
+      for (let i = 0; i < pulseItems.length; i++) {
+        const item = pulseItems[i];
+        const sinVal = Math.sin(elapsedTime * item.speed + item.phase);
+        const norm = (sinVal + 1) * 0.5; // 0 to 1
+        const s = item.baseScale + norm * (item.maxScale - item.baseScale);
+        item.mesh.scale.set(s, s, s);
+        if (item.mesh.material && 'opacity' in item.mesh.material) {
+          (item.mesh.material as THREE.Material & { opacity: number }).opacity =
+            item.baseOpacity * (0.3 + 0.7 * (1 - norm));
+        }
+      }
+
       renderer.render(scene, camera);
       animId = requestAnimationFrame(animate);
     };
@@ -348,48 +377,78 @@ export const Globe3D: React.FC<Globe3DProps> = ({
     };
   }, []);
 
-  // Update Province Markers and Border connections
+  // Update Province Markers, Dynamic Unit States, and Border connections
   useEffect(() => {
     if (!markersGroupRef.current) return;
     const group = markersGroupRef.current;
 
-    // Clear previous children
-    while (group.children.length > 0) {
-      const child = group.children[0] as THREE.Mesh;
-      group.remove(child);
-      if (child.geometry) child.geometry.dispose();
-      if (Array.isArray(child.material)) {
-        child.material.forEach(m => m.dispose());
-      } else if (child.material) {
-        child.material.dispose();
+    // Clear previous children and dispose WebGL resources
+    group.traverse(child => {
+      if ((child as THREE.Mesh).isMesh) {
+        const m = child as THREE.Mesh;
+        if (m.geometry) m.geometry.dispose();
+        if (Array.isArray(m.material)) {
+          m.material.forEach(mat => mat.dispose());
+        } else if (m.material) {
+          m.material.dispose();
+        }
       }
+    });
+
+    while (group.children.length > 0) {
+      group.remove(group.children[0]);
     }
+    pulsingMeshesRef.current = [];
 
     const radius = 1.015;
 
-    // 1. Draw Province 3D Nodes
+    // 1. Draw Province 3D Nodes with Tactical Unit-State Indicators
     Object.values(provinces).forEach(prov => {
       const country = countries[prov.countryId];
       const colorHex = country ? parseInt(country.color.replace('#', '0x'), 16) : 0x94a3b8;
       const isSelected = prov.id === selectedProvinceId;
 
+      // Evaluate tactical unit state (under fire, low fuel, general, entrenched)
+      const unitState = evaluateProvinceUnitState(
+        prov,
+        countries,
+        provinces,
+        recentBattles,
+        currentTurn
+      );
+
       const pos = latLngToVector3(prov.lat, prov.lng, radius);
 
-      // Node mesh: cylinder + sphere cap (composite procedural model)
+      // Node marker group
       const markerGroup = new THREE.Group();
       markerGroup.position.copy(pos);
       markerGroup.lookAt(new THREE.Vector3(0, 0, 0));
 
+      // Determine pin tint and emissive glow based on unit state
+      let pinColor = isSelected ? 0x38bdf8 : colorHex;
+      let emissiveColor = isSelected ? 0x38bdf8 : colorHex;
+      let emissiveIntensity = isSelected ? 1.0 : 0.45;
+
+      if (unitState.underFire) {
+        pinColor = 0xef4444;
+        emissiveColor = 0xef4444;
+        emissiveIntensity = 1.2;
+      } else if (unitState.lowFuel) {
+        pinColor = 0xf59e0b;
+        emissiveColor = 0xf59e0b;
+        emissiveIntensity = 0.85;
+      }
+
       const pinGeo = new THREE.CylinderGeometry(
-        isSelected ? 0.024 : 0.014,
+        isSelected ? 0.024 : (unitState.underFire ? 0.018 : 0.014),
         isSelected ? 0.015 : 0.008,
-        isSelected ? 0.06 : 0.035,
+        isSelected ? 0.065 : (unitState.underFire ? 0.045 : 0.035),
         12
       );
       const pinMat = new THREE.MeshStandardMaterial({
-        color: isSelected ? 0x38bdf8 : colorHex,
-        emissive: isSelected ? 0x38bdf8 : colorHex,
-        emissiveIntensity: isSelected ? 0.9 : 0.4,
+        color: pinColor,
+        emissive: emissiveColor,
+        emissiveIntensity: emissiveIntensity,
         roughness: 0.3,
         metalness: 0.8
       });
@@ -398,18 +457,139 @@ export const Globe3D: React.FC<Globe3DProps> = ({
       pinMesh.userData = { provinceId: prov.id };
       markerGroup.add(pinMesh);
 
-      // Capital / Port / Airbase Rings
-      if (prov.hasCapital || isSelected) {
-        const ringGeo = new THREE.RingGeometry(0.03, 0.045, 16);
-        const ringMat = new THREE.MeshBasicMaterial({
-          color: isSelected ? 0x38bdf8 : 0xfacc15,
+      // --- Unit-State Dynamic Pulse Rings & Indicators ---
+
+      // A) Under Fire: Pulsing Red Combat Shockwave & Spire
+      if (unitState.underFire) {
+        const fireRingGeo = new THREE.RingGeometry(0.022, 0.042, 24);
+        const fireRingMat = new THREE.MeshBasicMaterial({
+          color: 0xef4444,
           side: THREE.DoubleSide,
           transparent: true,
           opacity: 0.85
         });
-        const ringMesh = new THREE.Mesh(ringGeo, ringMat);
-        ringMesh.position.z = -0.01;
-        markerGroup.add(ringMesh);
+        const fireRingMesh = new THREE.Mesh(fireRingGeo, fireRingMat);
+        fireRingMesh.position.z = -0.008;
+        markerGroup.add(fireRingMesh);
+
+        pulsingMeshesRef.current.push({
+          mesh: fireRingMesh,
+          type: 'combat',
+          baseScale: 1.0,
+          maxScale: 2.2,
+          speed: 4.5,
+          phase: Math.random() * Math.PI,
+          baseOpacity: 0.85
+        });
+
+        // Vertical warning spire
+        const spireGeo = new THREE.ConeGeometry(0.008, 0.035, 6);
+        const spireMat = new THREE.MeshBasicMaterial({
+          color: 0xff2222,
+          transparent: true,
+          opacity: 0.9
+        });
+        const spireMesh = new THREE.Mesh(spireGeo, spireMat);
+        spireMesh.rotation.x = Math.PI / 2;
+        spireMesh.position.z = 0.035;
+        markerGroup.add(spireMesh);
+      }
+
+      // B) Low Fuel: Pulsing Amber Resource Warning Ring
+      if (unitState.lowFuel) {
+        const fuelRingGeo = new THREE.RingGeometry(0.018, 0.032, 20);
+        const fuelRingMat = new THREE.MeshBasicMaterial({
+          color: 0xf59e0b,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.75
+        });
+        const fuelRingMesh = new THREE.Mesh(fuelRingGeo, fuelRingMat);
+        fuelRingMesh.position.z = -0.006;
+        markerGroup.add(fuelRingMesh);
+
+        pulsingMeshesRef.current.push({
+          mesh: fuelRingMesh,
+          type: 'fuel',
+          baseScale: 1.0,
+          maxScale: 1.8,
+          speed: 2.8,
+          phase: Math.random() * Math.PI,
+          baseOpacity: 0.75
+        });
+      }
+
+      // C) Commanded by General: Golden Command Halo
+      if (unitState.hasGeneral) {
+        const genRingGeo = new THREE.RingGeometry(0.028, 0.042, 24);
+        const genRingMat = new THREE.MeshBasicMaterial({
+          color: 0xfacc15,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.85
+        });
+        const genRingMesh = new THREE.Mesh(genRingGeo, genRingMat);
+        genRingMesh.position.z = -0.012;
+        markerGroup.add(genRingMesh);
+
+        pulsingMeshesRef.current.push({
+          mesh: genRingMesh,
+          type: 'general',
+          baseScale: 0.95,
+          maxScale: 1.35,
+          speed: 2.2,
+          phase: 0,
+          baseOpacity: 0.85
+        });
+      }
+
+      // D) Entrenched: Cyan Fortification Hexagon
+      if (unitState.entrenched) {
+        const entrenchGeo = new THREE.RingGeometry(0.016, 0.026, 6);
+        const entrenchMat = new THREE.MeshBasicMaterial({
+          color: 0x06b6d4,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.7
+        });
+        const entrenchMesh = new THREE.Mesh(entrenchGeo, entrenchMat);
+        entrenchMesh.position.z = -0.004;
+        markerGroup.add(entrenchMesh);
+      }
+
+      // E) Selection Ring or Capital Highlight
+      if (isSelected) {
+        const selRingGeo = new THREE.RingGeometry(0.032, 0.05, 24);
+        const selRingMat = new THREE.MeshBasicMaterial({
+          color: 0x38bdf8,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.9
+        });
+        const selRingMesh = new THREE.Mesh(selRingGeo, selRingMat);
+        selRingMesh.position.z = -0.014;
+        markerGroup.add(selRingMesh);
+
+        pulsingMeshesRef.current.push({
+          mesh: selRingMesh,
+          type: 'selected',
+          baseScale: 1.0,
+          maxScale: 1.5,
+          speed: 3.5,
+          phase: 0,
+          baseOpacity: 0.9
+        });
+      } else if (prov.hasCapital) {
+        const capRingGeo = new THREE.RingGeometry(0.026, 0.038, 16);
+        const capRingMat = new THREE.MeshBasicMaterial({
+          color: 0xfacc15,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.7
+        });
+        const capRingMesh = new THREE.Mesh(capRingGeo, capRingMat);
+        capRingMesh.position.z = -0.005;
+        markerGroup.add(capRingMesh);
       }
 
       markerGroup.userData = { provinceId: prov.id };
@@ -450,7 +630,7 @@ export const Globe3D: React.FC<Globe3DProps> = ({
         group.add(line);
       });
     });
-  }, [provinces, countries, selectedProvinceId]);
+  }, [provinces, countries, selectedProvinceId, recentBattles, currentTurn]);
 
   return (
     <div className="relative w-full h-full select-none cursor-grab active:cursor-grabbing">
@@ -463,6 +643,29 @@ export const Globe3D: React.FC<Globe3DProps> = ({
         </div>
         <div className="text-slate-400">PROJECTION: SPHERICAL 3D GEO-DATUM</div>
         <div className="text-slate-400">CONTROL: DRAG TO ROTATE · SCROLL ZOOM</div>
+      </div>
+
+      {/* Situational Awareness Visual Telemetry Legend */}
+      <div className="absolute bottom-4 left-4 z-10 pointer-events-none bg-slate-950/85 p-2.5 rounded border border-slate-800/80 text-[10px] font-mono backdrop-blur-md flex flex-col gap-1.5 shadow-xl text-slate-300">
+        <div className="text-cyan-400 font-bold uppercase tracking-wider text-[9px] border-b border-slate-800 pb-0.5">
+          Situational Unit Telemetry
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-red-500 animate-ping inline-block" />
+          <span className="text-red-400 font-bold">[FIRE]</span> Under Fire / Frontline Clashes
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse inline-block" />
+          <span className="text-amber-400 font-bold">[FUEL]</span> Low Fuel Reserves (&lt;100 bbl)
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-yellow-400 inline-block shadow-[0_0_8px_rgba(250,204,21,0.8)]" />
+          <span className="text-yellow-400 font-bold">[GEN]</span> Commanded by 5-Star General
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-sm bg-cyan-500 inline-block" />
+          <span className="text-cyan-400 font-bold">[FORT]</span> Entrenched Fortification
+        </div>
       </div>
     </div>
   );

@@ -3,10 +3,12 @@ import {
   DiplomaticRelation, 
   DiplomaticStatus 
 } from '../types';
+import { ensureBilateralRelation } from './diplomacyUtils';
 
 export interface ProposalEvaluationResult {
   accepted: boolean;
   message: string;
+  reason?: string;
   counterOffer?: {
     goldDemanded?: number;
     resourceDemanded?: { key: string; amount: number };
@@ -14,33 +16,61 @@ export interface ProposalEvaluationResult {
 }
 
 export function evaluateDiplomaticProposal(
-  proposingCountry: Country,
-  targetCountry: Country,
+  proposingCountry: Country | undefined | null,
+  targetCountry: Country | undefined | null,
   proposalType: DiplomaticStatus | 'PEACE_TREATY' | 'TRADE_DEAL' | 'MILITARY_ACCESS'
 ): ProposalEvaluationResult {
-  const relation = targetCountry.relations[proposingCountry.id];
+  if (!proposingCountry || !targetCountry) {
+    const msg = 'Invalid nation specified for diplomatic negotiations.';
+    return {
+      accepted: false,
+      message: msg,
+      reason: msg
+    };
+  }
+  if (proposingCountry.id === targetCountry.id) {
+    const msg = 'Cannot send diplomatic overtures to yourself.';
+    return {
+      accepted: false,
+      message: msg,
+      reason: msg
+    };
+  }
+
+  const rels = ensureBilateralRelation(targetCountry, proposingCountry);
+  const relation = rels?.relAtoB;
   const trust = relation ? relation.trustScore : 0;
-  const personality = targetCountry.aiProfile.personality;
-  const targetAggression = targetCountry.aiProfile.aggressionRate;
+  const personality = targetCountry.aiProfile?.personality || 'Balanced';
+  const targetAggression = targetCountry.aiProfile?.aggressionRate ?? 0.5;
 
   // If in active war and requesting peace
   if (proposalType === 'PEACE_TREATY' || (relation && relation.status === 'WAR' && proposalType === 'PEACE')) {
-    if (relation.memory.warsFought > 2 && personality === 'Aggressive') {
+    if (relation && relation.memory.warsFought > 2 && personality === 'Aggressive') {
+      const msg = `${targetCountry.name} military high command rejects your ceasefire: "We will only accept unconditional submission."`;
       return {
         accepted: false,
-        message: `${targetCountry.name} military high command rejects your ceasefire: "We will only accept unconditional submission."`
+        message: msg,
+        reason: msg
       };
     }
-    // If target has suffered heavy losses or proposing country is stronger
-    if (targetCountry.totalLosses > proposingCountry.totalLosses || trust > -20 || personality === 'Diplomatic') {
+    const targetLosses = targetCountry.totalLosses ?? 0;
+    const proposingLosses = proposingCountry.totalLosses ?? 0;
+    const isOutmatched = (proposingCountry.score ?? 0) >= (targetCountry.score ?? 0) * 1.5;
+
+    // If target has suffered heavy losses, proposing country is far stronger, trust is acceptable, or personality is Diplomatic/Defensive when outmatched
+    if (targetLosses > proposingLosses || trust >= -20 || personality === 'Diplomatic' || (personality === 'Defensive' && isOutmatched)) {
+      const msg = `${targetCountry.name} has accepted the armistice and signed a mutual ceasefire.`;
       return {
         accepted: true,
-        message: `${targetCountry.name} has accepted the armistice and signed a mutual ceasefire.`
+        message: msg,
+        reason: msg
       };
     } else {
+      const msg = `${targetCountry.name} refuses the peace overture: "Your terms offer no strategic reparations."`;
       return {
         accepted: false,
-        message: `${targetCountry.name} refuses the peace overture: "Your terms offer no strategic reparations."`,
+        message: msg,
+        reason: msg,
         counterOffer: { goldDemanded: 50 }
       };
     }
