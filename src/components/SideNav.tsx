@@ -47,8 +47,8 @@ export const SideNav: React.FC<SideNavProps> = ({
 
   return (
     <aside 
-      className={`bg-slate-950/90 border-r border-slate-800 transition-all duration-200 z-20 flex flex-col justify-between select-none ${
-        isCollapsed ? 'w-14' : 'w-48 sm:w-56'
+      className={`hidden md:flex bg-slate-950/90 border-r border-slate-800 transition-all duration-200 z-20 flex-col justify-between select-none ${
+        isCollapsed ? 'w-14' : 'w-48 lg:w-56'
       }`}
     >
       <div className="flex flex-col py-2 gap-1">

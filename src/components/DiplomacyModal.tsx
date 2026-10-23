@@ -80,7 +80,7 @@ export const DiplomacyModal: React.FC<DiplomacyModalProps> = ({
         {/* Content Layout */}
         <div className="flex-1 flex flex-col sm:flex-row overflow-hidden">
           {/* Left Column: Sovereign Nation Selector */}
-          <div className="w-full sm:w-64 border-b sm:border-b-0 sm:border-r border-slate-800 bg-slate-900/40 p-2 overflow-y-auto space-y-1.5">
+          <div className="w-full sm:w-64 max-h-36 sm:max-h-none shrink-0 border-b sm:border-b-0 sm:border-r border-slate-800 bg-slate-900/40 p-2 overflow-y-auto space-y-1.5">
             {foreignCountries.map(c => {
               const rel = player?.relations[c.id];
               const isSelected = c.id === selectedCountryId;

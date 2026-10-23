@@ -23,6 +23,8 @@ import { EconomyModal } from './components/EconomyModal';
 import { WarRoomModal } from './components/WarRoomModal';
 import { GeneralsModal } from './components/GeneralsModal';
 import { BottomFeed } from './components/BottomFeed';
+import { EventNotificationBanner } from './components/EventNotificationBanner';
+import { MobileBottomNav } from './components/MobileBottomNav';
 
 export default function App() {
   const [gameState, setGameState] = useState<GameState>(gameStore.getState());
@@ -36,6 +38,9 @@ export default function App() {
   const [isDevConsoleOpen, setIsDevConsoleOpen] = useState<boolean>(false);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(sound.getMuted());
+  const [isEventModalOpen, setIsEventModalOpen] = useState<boolean>(false);
+  const [activeEventIndex, setActiveEventIndex] = useState<number>(0);
+  const [dismissedToastEventId, setDismissedToastEventId] = useState<string | null>(null);
 
   // Subscribe to game store updates
   useEffect(() => {
@@ -103,8 +108,8 @@ export default function App() {
   };
 
   // Resolve dynamic world event choices
-  const handleResolveEventOption = (optionIndex: number) => {
-    const activeEvent = gameState.activeEvents[0];
+  const handleResolveEventOption = (optionIndex: number, eventIndex: number = 0) => {
+    const activeEvent = gameState.activeEvents[eventIndex] || gameState.activeEvents[0];
     if (!activeEvent) return;
     const option = activeEvent.options[optionIndex];
     const player = gameState.countries[gameState.playerCountryId];
@@ -130,8 +135,13 @@ export default function App() {
       sound.playSelect();
     }
 
-    // Dismiss event
-    gameState.activeEvents.shift();
+    // Dismiss this resolved event from the queue
+    gameState.activeEvents.splice(eventIndex, 1);
+    if (gameState.activeEvents.length === 0) {
+      setIsEventModalOpen(false);
+    } else {
+      setActiveEventIndex(prev => Math.min(prev, gameState.activeEvents.length - 1));
+    }
     setGameState({ ...gameState });
   };
 
@@ -158,6 +168,8 @@ export default function App() {
       {/* Top HUD Navigation Bar */}
       <TopBar
         state={gameState}
+        activeEventsCount={gameState.activeEvents.length}
+        onOpenDirectives={() => setIsEventModalOpen(true)}
         onTogglePause={() => gameStore.togglePause()}
         onSetSpeed={(s) => gameStore.setSpeed(s)}
         onOpenSaveModal={() => setIsSaveModalOpen(true)}
@@ -169,6 +181,27 @@ export default function App() {
         viewMode={viewMode}
         onToggleViewMode={() => setViewMode(v => v === '3D' ? '2D' : '3D')}
       />
+
+      {/* Non-intrusive Floating Directive Alert Banner (Never blocks gameplay) */}
+      {gameState.activeEvents.length > 0 && !isEventModalOpen && (() => {
+        const latestEvent = gameState.activeEvents[gameState.activeEvents.length - 1];
+        if (latestEvent && latestEvent.id !== dismissedToastEventId) {
+          return (
+            <EventNotificationBanner
+              event={latestEvent}
+              onOpenEvent={(ev) => {
+                const idx = gameState.activeEvents.findIndex(e => e.id === ev.id);
+                setActiveEventIndex(idx >= 0 ? idx : 0);
+                setIsEventModalOpen(true);
+                setDismissedToastEventId(ev.id);
+              }}
+              onDismissToast={() => setDismissedToastEventId(latestEvent.id)}
+              lang={lang}
+            />
+          );
+        }
+        return null;
+      })()}
 
       {/* Main Command Workspace */}
       <div className="flex-1 flex overflow-hidden relative">
@@ -234,6 +267,7 @@ export default function App() {
           <BottomFeed
             notifications={gameState.notifications}
             onSelectProvince={handleSelectProvince}
+            onOpenDirectives={() => setIsEventModalOpen(true)}
             lang={lang}
           />
         </main>
@@ -332,12 +366,15 @@ export default function App() {
         />
       )}
 
-      {/* Dynamic Crisis Event Modal */}
-      {gameState.activeEvents.length > 0 && (
+      {/* Dynamic Geopolitical Directives Modal (Opened on-demand by user via notification or TopBar beacon) */}
+      {isEventModalOpen && gameState.activeEvents.length > 0 && (
         <EventModal
-          event={gameState.activeEvents[0]}
+          events={gameState.activeEvents}
+          activeEventIndex={activeEventIndex}
+          onChangeEventIndex={setActiveEventIndex}
           state={gameState}
           onResolveOption={handleResolveEventOption}
+          onClose={() => setIsEventModalOpen(false)}
           lang={lang}
         />
       )}
@@ -378,6 +415,14 @@ export default function App() {
               ]
             };
             gameState.activeEvents.push(ev);
+            gameState.notifications.unshift({
+              id: `notif_${ev.id}`,
+              turn: gameState.currentTurn,
+              type: 'EVENT',
+              title: `Directive: ${ev.titleKey}`,
+              message: ev.descKey
+            });
+            setDismissedToastEventId(null);
             setGameState({ ...gameState });
           }}
           onResetWorld={() => {
@@ -397,6 +442,21 @@ export default function App() {
           lang={lang}
         />
       )}
+
+      {/* Mobile Fixed Bottom Navigation Bar (Hidden on iPad and Desktop) */}
+      <MobileBottomNav
+        activeTab={activeTab}
+        onSelectTab={(tab) => {
+          setActiveTab(tab);
+          sound.playClick();
+        }}
+        lang={lang}
+        unreadBattlesCount={gameState.recentBattles.length}
+        availableMissionsCount={availableMissionsCount}
+        onOpenSaveModal={() => setIsSaveModalOpen(true)}
+        onOpenDevConsole={() => setIsDevConsoleOpen(true)}
+        isDevMode={gameState.isDevMode}
+      />
     </div>
   );
 }

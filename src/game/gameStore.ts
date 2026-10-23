@@ -445,6 +445,13 @@ class GameStore {
     const maybeEvent = maybeTriggerRandomEvent(s);
     if (maybeEvent) {
       s.activeEvents.push(maybeEvent);
+      s.notifications.unshift({
+        id: `notif_${maybeEvent.id}`,
+        turn: s.currentTurn,
+        type: 'EVENT',
+        title: `Directive: ${maybeEvent.titleKey}`,
+        message: maybeEvent.descKey
+      });
       sound.playAlertSiren();
     }
 
@@ -673,6 +680,10 @@ class GameStore {
       attackingUnits,
       sourceProvinceId: fromProvinceId
     });
+
+    if (battle.victor === 'DEFENDER' && battle.survivingAttackerUnits) {
+      fromProv.units.push(...battle.survivingAttackerUnits);
+    }
 
     s.recentBattles.unshift(battle);
     if (battle.victor === 'ATTACKER') {

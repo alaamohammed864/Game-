@@ -210,6 +210,8 @@ export function simulateCombatEngagement(input: CombatEngagementInput): BattleRe
   const defenderVehicleLoss = Math.round(defenderVehicleCount * defenderLossPct);
   const defenderAircraftLoss = Math.round(defenderAircraftCount * defenderLossPct);
 
+  let survivingAttackingUnits: UnitGroup[] = [];
+
   // Apply losses to units in place
   if (attackerWon) {
     // If defender wiped out or routing, defender units eliminated or retreated
@@ -223,12 +225,12 @@ export function simulateCombatEngagement(input: CombatEngagementInput): BattleRe
     }
 
     // Attacker units occupy province (take remaining units into target province)
-    const survivingAttackingUnits: UnitGroup[] = attackingUnits.map(u => ({
+    survivingAttackingUnits = attackingUnits.map(u => ({
       ...u,
       count: Math.max(1, Math.round(u.count * (1 - attackerLossPct))),
       experience: Math.min(100, u.experience + 15),
       morale: Math.min(100, u.morale + 10)
-    }));
+    })).filter(u => u.count > 0);
 
     targetProvince.units = survivingAttackingUnits;
     targetProvince.countryId = attackerCountry.id;
@@ -241,6 +243,14 @@ export function simulateCombatEngagement(input: CombatEngagementInput): BattleRe
       u.experience = Math.min(100, u.experience + 10);
       u.morale = Math.min(100, u.morale + 5);
     });
+
+    // Attacker repulsed: calculate surviving attacker units that retreat to source base
+    survivingAttackingUnits = attackingUnits.map(u => ({
+      ...u,
+      count: Math.max(1, Math.round(u.count * (1 - attackerLossPct))),
+      experience: Math.min(100, u.experience + 5),
+      morale: Math.max(15, u.morale - 25)
+    })).filter(u => u.count > 0);
   }
 
   // Update country kill/loss stats
@@ -289,6 +299,7 @@ export function simulateCombatEngagement(input: CombatEngagementInput): BattleRe
     defenderSupplyPct: defenderOilDeficit ? 50 : 95,
     victor,
     provinceCaptured: attackerWon,
-    detailsLog
+    detailsLog,
+    survivingAttackerUnits: attackerWon ? undefined : survivingAttackingUnits
   };
 }

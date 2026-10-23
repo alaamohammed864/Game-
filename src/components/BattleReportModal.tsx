@@ -60,7 +60,7 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
         </div>
 
         {/* Combatant Comparison Grid */}
-        <div className="p-4 grid grid-cols-2 gap-4 font-mono text-xs border-b border-slate-900">
+        <div className="p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 font-mono text-xs border-b border-slate-900">
           {/* Attacker */}
           <div className="p-3 rounded bg-slate-900/70 border border-slate-800 space-y-2">
             <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">

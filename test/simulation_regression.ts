@@ -1,9 +1,10 @@
 import { ensureBilateralRelation, setBilateralDiplomaticStatus, validateWarDeclaration } from '../src/diplomacy/diplomacyUtils';
 import { evaluateDiplomaticProposal } from '../src/diplomacy/diplomacyEngine';
 import { processAITurn } from '../src/ai/aiEngine';
+import { simulateCombatEngagement } from '../src/combat/combatEngine';
 import { storage, SAVE_SCHEMA_VERSION } from '../src/storage/db';
 import { gameStore } from '../src/game/gameStore';
-import { Country, DiplomaticRelation } from '../src/types';
+import { Country, DiplomaticRelation, Province, UnitGroup } from '../src/types';
 
 // Deterministic Pseudo-Random Number Generator (Linear Congruential Generator)
 function createSeededRng(seed = 123456789) {
@@ -307,9 +308,114 @@ console.log('\n--- SECTION 3: ECONOMY & CENTRALIZED TRANSACTION ENGINE (PHASE 4)
   assert(!canAffordAfter, 'T10.4: Disabling unlimited gold restores strict cost enforcement');
 }
 
-console.log('\n--- SECTION 4: STRATEGIC AI 100-TURN SIMULATION & DETERMINISM (PHASE 5) ---');
+console.log('\n--- SECTION 4: COMBAT & TACTICAL ENGAGEMENT RESOLUTION ---');
 
-// Test 11: 100 Consecutive AI turns without crashes or contradictory diplomatic states
+// Test 11: Decisive assault captures province
+{
+  const attacker = createMockCountry('invader', 'Invader Nation');
+  const defender = createMockCountry('defender', 'Defending Nation');
+  const targetProv: Province = {
+    id: 'prov_target',
+    name: 'Target Borderland',
+    countryId: 'defender',
+    originalCountryId: 'defender',
+    lat: 10,
+    lng: 20,
+    mapX: 45,
+    mapY: 55,
+    terrain: 'Plains',
+    population: 5,
+    economicValue: 100,
+    defenseLevel: 0,
+    infrastructure: 50,
+    stability: 80,
+    strategicImportance: 4,
+    resourceDeposits: { oil: 50 },
+    buildings: [],
+    units: [{ id: 'def_1', type: 'infantry', count: 1, experience: 10, morale: 50, supply: 50 }],
+    hasCapital: false,
+    hasPort: false,
+    hasAirbase: false,
+    hasMilitaryBase: false,
+    neighborIds: ['prov_source']
+  };
+
+  const attackingUnits: UnitGroup[] = [
+    { id: 'atk_1', type: 'armored_units', count: 25, experience: 80, morale: 100, supply: 100 },
+    { id: 'atk_2', type: 'artillery', count: 20, experience: 75, morale: 100, supply: 100 }
+  ];
+
+  const battle = simulateCombatEngagement({
+    turn: 5,
+    attackerCountry: attacker,
+    defenderCountry: defender,
+    targetProvince: targetProv,
+    attackingUnits,
+    sourceProvinceId: 'prov_source'
+  });
+
+  assert(battle.victor === 'ATTACKER', 'T11.1: Overwhelming assault scores decisive attacker victory');
+  assert(battle.provinceCaptured === true, 'T11.2: Province captured flag is true');
+  assert(targetProv.countryId === 'invader', 'T11.3: Province countryId transfers to attacker');
+  assert(targetProv.units.length > 0, 'T11.4: Attacker units occupy captured province');
+}
+
+// Test 12: Repulsed assault retreats surviving units with casualties accounted for
+{
+  const attacker = createMockCountry('invader', 'Invader Nation');
+  const defender = createMockCountry('defender', 'Defending Nation');
+  const targetProv: Province = {
+    id: 'prov_citadel',
+    name: 'Fortress Citadel',
+    countryId: 'defender',
+    originalCountryId: 'defender',
+    lat: 15,
+    lng: 25,
+    mapX: 50,
+    mapY: 60,
+    terrain: 'Mountains',
+    population: 10,
+    economicValue: 200,
+    defenseLevel: 5,
+    infrastructure: 80,
+    stability: 95,
+    strategicImportance: 8,
+    resourceDeposits: { steel: 100 },
+    buildings: [{ type: 'military_base', level: 3 }],
+    units: [
+      { id: 'def_tanks', type: 'armored_units', count: 50, experience: 90, morale: 100, supply: 100 },
+      { id: 'def_air', type: 'air_defense', count: 30, experience: 85, morale: 100, supply: 100 }
+    ],
+    hasCapital: false,
+    hasPort: false,
+    hasAirbase: true,
+    hasMilitaryBase: true,
+    neighborIds: ['prov_source']
+  };
+
+  const attackingUnits: UnitGroup[] = [
+    { id: 'weak_inf', type: 'infantry', count: 2, experience: 20, morale: 60, supply: 70 }
+  ];
+
+  const battle = simulateCombatEngagement({
+    turn: 6,
+    attackerCountry: attacker,
+    defenderCountry: defender,
+    targetProvince: targetProv,
+    attackingUnits,
+    sourceProvinceId: 'prov_source'
+  });
+
+  assert(battle.victor === 'DEFENDER', 'T12.1: Fortified citadel successfully repulses weak assault');
+  assert(battle.provinceCaptured === false, 'T12.2: Province remains under defender control');
+  assert(targetProv.countryId === 'defender', 'T12.3: Defender sovereign control preserved');
+  assert(Array.isArray(battle.survivingAttackerUnits), 'T12.4: Surviving attacker units array is provided');
+  assert(battle.survivingAttackerUnits!.length > 0, 'T12.5: Surviving attacking units retreat rather than vanishing');
+}
+
+console.log('\n--- SECTION 5: STRATEGIC AI 100-TURN SIMULATION & DETERMINISM (PHASE 5) ---');
+
+// Test 13: 100 Consecutive AI turns without crashes or contradictory diplomatic states
 {
   const seededRng = createSeededRng(42);
   const state = gameStore.getState();
@@ -357,8 +463,90 @@ console.log('\n--- SECTION 4: STRATEGIC AI 100-TURN SIMULATION & DETERMINISM (PH
     }
   }
 
-  assert(aiCrashes === 0, 'T11.1: 100 consecutive AI turns executed with ZERO crashes');
-  assert(contradictoryStates === 0, 'T11.2: Diplomatic states remained 100% symmetric and non-contradictory');
+  assert(aiCrashes === 0, 'T13.1: 100 consecutive AI turns executed with ZERO crashes');
+  assert(contradictoryStates === 0, 'T13.2: Diplomatic states remained 100% symmetric and non-contradictory');
+}
+
+// =========================================================================
+// SECTION 6: EVENT NOTIFICATIONS & DIRECTIVES QUEUE INTEGRITY
+// =========================================================================
+console.log('\n--- SECTION 6: EVENT NOTIFICATIONS & DIRECTIVES QUEUE INTEGRITY ---');
+{
+  const state = gameStore.createNewGame('NORMAL', 'valyria');
+  const player = state.countries['valyria'];
+  const initMoney = player.resources.money;
+  const initManpower = player.resources.manpower;
+
+  // Simulate an event arriving
+  const mockEvent1 = {
+    id: 'test_event_1',
+    titleKey: 'Resource Boom Discovery',
+    descKey: 'Geological surveys uncovered rare material deposits.',
+    severity: 'BOOM' as const,
+    options: [
+      {
+        label: 'Invest in Extraction',
+        description: 'Spend $200 to gain 400 rare materials.',
+        cost: { money: 200 },
+        reward: { rareMaterials: 400 },
+        stabilityDelta: 5
+      },
+      {
+        label: 'Conserve Reserves',
+        description: 'Keep state funds intact.'
+      }
+    ]
+  };
+
+  const mockEvent2 = {
+    id: 'test_event_2',
+    titleKey: 'Border Flashpoint',
+    descKey: 'Tension escalated near eastern frontier.',
+    severity: 'WARNING' as const,
+    options: [
+      {
+        label: 'Fortify Outposts',
+        description: 'Spend $100 and gain defense.'
+      }
+    ]
+  };
+
+  // Push into queue
+  state.activeEvents.push(mockEvent1);
+  state.notifications.unshift({
+    id: `notif_${mockEvent1.id}`,
+    turn: state.currentTurn,
+    type: 'EVENT',
+    title: `Directive: ${mockEvent1.titleKey}`,
+    message: mockEvent1.descKey
+  });
+
+  assert(state.activeEvents.length === 1, 'T14.1: Event successfully queued into activeEvents');
+  assert(state.notifications[0].type === 'EVENT', 'T14.2: Event registered as non-intrusive operational notification');
+  assert(state.notifications[0].title.includes('Resource Boom Discovery'), 'T14.3: Notification title matches event title');
+
+  // Add second event to test multi-event coexistence
+  state.activeEvents.push(mockEvent2);
+  assert(state.activeEvents.length === 2, 'T14.4: Multiple geopolitical events coexist in queue without blocking');
+
+  // Resolve first event choice
+  const chosenOpt = state.activeEvents[0].options[0];
+  if (chosenOpt.cost) {
+    Object.entries(chosenOpt.cost).forEach(([k, v]) => {
+      player.resources[k as keyof typeof player.resources] -= v;
+    });
+  }
+  if (chosenOpt.reward) {
+    Object.entries(chosenOpt.reward).forEach(([k, v]) => {
+      player.resources[k as keyof typeof player.resources] += v;
+    });
+  }
+  state.activeEvents.splice(0, 1);
+
+  assert(player.resources.money === initMoney - 200, 'T15.1: Policy execution deducted cost accurately');
+  assert(player.resources.rareMaterials >= 400, 'T15.2: Policy execution granted reward accurately');
+  assert(state.activeEvents.length === 1, 'T15.3: Resolved event cleanly removed from queue');
+  assert(state.activeEvents[0].id === 'test_event_2', 'T15.4: Remaining directive safely preserved in queue');
 }
 
 console.log('\n====================================================');

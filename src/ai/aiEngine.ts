@@ -362,6 +362,10 @@ export function processAITurn(
             sourceProvinceId: stagingProv.id
           });
 
+          if (battle.victor === 'DEFENDER' && battle.survivingAttackerUnits) {
+            stagingProv.units.push(...battle.survivingAttackerUnits);
+          }
+
           result.newBattles.push(battle);
 
           result.notifications.push({

@@ -70,12 +70,12 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({
         )}
 
         {/* Category Filters */}
-        <div className="flex border-b border-slate-800 bg-slate-900/40 text-xs px-3">
+        <div className="flex border-b border-slate-800 bg-slate-900/40 text-xs px-3 overflow-x-auto scrollbar-none shrink-0">
           {(['ALL', 'MILITARY', 'ECONOMY', 'SCIENCE', 'INFRASTRUCTURE'] as const).map(cat => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`py-2 px-3 border-b-2 font-medium ${
+              className={`py-2 px-3 border-b-2 font-medium whitespace-nowrap shrink-0 transition-colors ${
                 activeCategory === cat
                   ? 'border-cyan-400 text-cyan-300'
                   : 'border-transparent text-slate-400 hover:text-white'

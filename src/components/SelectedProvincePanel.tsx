@@ -83,10 +83,12 @@ export const SelectedProvincePanel: React.FC<SelectedProvincePanelProps> = ({
   };
 
   return (
-    <div className="absolute top-14 right-2 sm:right-4 w-[92vw] sm:w-96 max-h-[85vh] bg-slate-950/95 border border-slate-800 rounded-lg shadow-2xl z-30 flex flex-col overflow-hidden backdrop-blur-md">
+    <div className="fixed inset-x-0 bottom-16 sm:bottom-auto sm:top-14 sm:right-4 sm:left-auto w-full sm:w-96 max-h-[62vh] sm:max-h-[85vh] bg-slate-950/95 border border-slate-800 rounded-t-2xl sm:rounded-lg shadow-2xl z-30 flex flex-col overflow-hidden backdrop-blur-md">
+      {/* Mobile drag handle */}
+      <div className="w-10 h-1 bg-slate-700 rounded-full mx-auto my-1.5 sm:hidden shrink-0" />
       {/* Header */}
       <div 
-        className="px-4 py-3 border-b border-slate-800 flex items-center justify-between"
+        className="px-4 py-2.5 sm:py-3 border-b border-slate-800 flex items-center justify-between"
         style={{ borderTop: `3px solid ${country?.color || '#3b82f6'}` }}
       >
         <div className="flex flex-col">

@@ -112,6 +112,17 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     spawn_strike_corps: 'Air-Drop Armored Division',
     trigger_random_event: 'Trigger Crisis Event',
     reset_world: 'Reset Scenario World',
+    
+    // Directives & Events
+    directives: 'Directives',
+    review_directive: 'Review Directive',
+    decide_later: 'Decide Later',
+    new_directive_alert: 'New Geopolitical Directive',
+    pending_events: 'Pending Directives',
+    more_tabs: 'More',
+    quick_menu: 'Quick Menu',
+    close: 'Close',
+    execute_policy: 'Execute Policy',
   },
   ar: {
     game_title: 'القيادة العالمية: عصر الاستراتيجية',
@@ -224,6 +235,17 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     spawn_strike_corps: 'إنزال فيلق مدرع فوري',
     trigger_random_event: 'إشعال حدث أزمة طارئ',
     reset_world: 'إعادة ضبط خريطة العالم',
+
+    // Directives & Events
+    directives: 'التوجيهات والقرارات',
+    review_directive: 'مراجعة التوجيه',
+    decide_later: 'اتخاذ القرار لاحقاً',
+    new_directive_alert: 'توجيه جيوسياسي جديد',
+    pending_events: 'توجيهات معلقة',
+    more_tabs: 'المزيد',
+    quick_menu: 'القائمة السريعة',
+    close: 'إغلاق',
+    execute_policy: 'تنفيذ السياسة',
   }
 };
 

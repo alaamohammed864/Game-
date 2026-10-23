@@ -6,12 +6,14 @@ import { Language } from '../utils/localization';
 interface BottomFeedProps {
   notifications: GameNotification[];
   onSelectProvince?: (provinceId: string) => void;
+  onOpenDirectives?: () => void;
   lang: Language;
 }
 
 export const BottomFeed: React.FC<BottomFeedProps> = ({
   notifications,
   onSelectProvince,
+  onOpenDirectives,
   lang
 }) => {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
@@ -32,7 +34,7 @@ export const BottomFeed: React.FC<BottomFeedProps> = ({
   };
 
   return (
-    <div className="absolute bottom-2 left-2 right-2 sm:left-4 sm:right-auto sm:max-w-xl z-20 font-mono text-xs select-none">
+    <div className="absolute bottom-20 md:bottom-3 left-2 right-2 sm:left-4 sm:right-auto sm:max-w-xl z-20 font-mono text-xs select-none">
       <div className="bg-slate-950/90 border border-slate-800 rounded-lg shadow-xl overflow-hidden backdrop-blur-md">
         {/* Compact Ticker Bar */}
         <div 
@@ -64,12 +66,14 @@ export const BottomFeed: React.FC<BottomFeedProps> = ({
               <div 
                 key={n.id}
                 onClick={() => {
-                  if (n.provinceId && onSelectProvince) {
+                  if (n.type === 'EVENT' && onOpenDirectives) {
+                    onOpenDirectives();
+                  } else if (n.provinceId && onSelectProvince) {
                     onSelectProvince(n.provinceId);
                   }
                 }}
                 className={`p-2 rounded border border-slate-900 bg-slate-900/50 flex items-start gap-2 ${
-                  n.provinceId ? 'cursor-pointer hover:border-cyan-500/50' : ''
+                  n.provinceId || n.type === 'EVENT' ? 'cursor-pointer hover:border-cyan-500/50' : ''
                 }`}
               >
                 <span className="mt-0.5">{getIcon(n.type)}</span>

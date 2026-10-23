@@ -318,6 +318,7 @@ export interface BattleReport {
   victor: 'ATTACKER' | 'DEFENDER';
   provinceCaptured: boolean;
   detailsLog: string[];
+  survivingAttackerUnits?: UnitGroup[];
 }
 
 export interface Mission {
