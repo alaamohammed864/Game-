@@ -3,6 +3,8 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { BattleReport, Country, Province } from '../types';
 import { evaluateProvinceUnitState, ProvinceUnitState } from '../utils/unitState';
+import { UnitSimulation } from '../simulation/UnitSimulation';
+import { createVehicleMesh, createShipMesh, createAircraftMesh } from '../simulation/unitMeshFactory';
 
 interface Globe3DProps {
   provinces: Record<string, Province>;
@@ -41,6 +43,8 @@ export const Globe3D: React.FC<Globe3DProps> = ({
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const globeGroupRef = useRef<THREE.Group | null>(null);
   const markersGroupRef = useRef<THREE.Group | null>(null);
+  const unitsGroupRef = useRef<THREE.Group | null>(null);
+  const unitSimulationRef = useRef<UnitSimulation>(new UnitSimulation());
   const pulsingMeshesRef = useRef<PulsingMeshItem[]>([]);
   const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster());
   const mouseRef = useRef<THREE.Vector2>(new THREE.Vector2());
@@ -215,6 +219,11 @@ export const Globe3D: React.FC<Globe3DProps> = ({
     globeGroup.add(markersGroup);
     markersGroupRef.current = markersGroup;
 
+    // Tactical 3D Units Simulation Group
+    const unitsGroup = new THREE.Group();
+    globeGroup.add(unitsGroup);
+    unitsGroupRef.current = unitsGroup;
+
     // Mouse drag handlers
     const onMouseDown = (e: MouseEvent) => {
       isDraggingRef.current = true;
@@ -337,6 +346,19 @@ export const Globe3D: React.FC<Globe3DProps> = ({
         }
       }
 
+      // Update 3D military unit simulation (movement, heading, ship bobbing)
+      const sim = unitSimulationRef.current;
+      sim.update(dt);
+
+      // Loop completed routes so units patrol continuously
+      for (const unit of sim.units.values()) {
+        if (unit.reachedDestination && unit.route && unit.route.length > 1) {
+          unit.route = [...unit.route].reverse();
+          unit.routeIndex = 0;
+          unit.reachedDestination = false;
+        }
+      }
+
       renderer.render(scene, camera);
       animId = requestAnimationFrame(animate);
     };
@@ -367,6 +389,19 @@ export const Globe3D: React.FC<Globe3DProps> = ({
 
       if (container && domElement.parentNode === container) {
         container.removeChild(domElement);
+      }
+      if (unitsGroupRef.current) {
+        unitsGroupRef.current.traverse(child => {
+          if ((child as THREE.Mesh).isMesh) {
+            const m = child as THREE.Mesh;
+            if (m.geometry) m.geometry.dispose();
+            if (Array.isArray(m.material)) {
+              m.material.forEach(mat => mat.dispose());
+            } else if (m.material) {
+              m.material.dispose();
+            }
+          }
+        });
       }
       renderer.dispose();
       sphereGeo.dispose();
@@ -630,7 +665,137 @@ export const Globe3D: React.FC<Globe3DProps> = ({
         group.add(line);
       });
     });
+
+    // 3. Populate Active 3D Military Units into UnitSimulation
+    const unitsGroup = unitsGroupRef.current;
+    if (unitsGroup) {
+      unitsGroup.traverse(child => {
+        if ((child as THREE.Mesh).isMesh) {
+          const m = child as THREE.Mesh;
+          if (m.geometry) m.geometry.dispose();
+          if (Array.isArray(m.material)) {
+            m.material.forEach(mat => mat.dispose());
+          } else if (m.material) {
+            m.material.dispose();
+          }
+        }
+      });
+      while (unitsGroup.children.length > 0) {
+        unitsGroup.remove(unitsGroup.children[0]);
+      }
+    }
+    const sim = unitSimulationRef.current;
+    sim.units.clear();
+
+    Object.values(provinces).forEach(prov => {
+      const country = countries[prov.countryId];
+      const colorHex = country ? parseInt(country.color.replace('#', '0x'), 16) : 0x38bdf8;
+
+      // 3A. Armored & Mechanized Ground Units
+      const hasArmor = prov.units && prov.units.some(u => 
+        ['armored_units', 'mechanized_infantry', 'artillery'].includes(u.type) && u.count > 0
+      );
+      const hasInfantry = prov.units && prov.units.some(u => 
+        ['infantry', 'special_forces'].includes(u.type) && u.count > 20
+      );
+
+      if ((hasArmor || hasInfantry) && prov.neighborIds.length > 0 && unitsGroup) {
+        const targetProv = provinces[prov.neighborIds[0]];
+        if (targetProv) {
+          const v1 = latLngToVector3(prov.lat, prov.lng, radius + 0.006);
+          const v2 = latLngToVector3(targetProv.lat, targetProv.lng, radius + 0.006);
+          const mid = v1.clone().add(v2).multiplyScalar(0.5).normalize().multiplyScalar(radius + 0.014);
+
+          const vehMesh = createVehicleMesh(colorHex);
+          unitsGroup.add(vehMesh);
+          sim.addUnit({
+            id: `veh-${prov.id}`,
+            type: 'vehicle',
+            mesh: vehMesh,
+            x: v1.x,
+            y: v1.y,
+            z: v1.z,
+            route: [
+              { x: v1.x, y: v1.y, z: v1.z },
+              { x: mid.x, y: mid.y, z: mid.z },
+              { x: v2.x, y: v2.y, z: v2.z }
+            ],
+            speed: 0.09,
+            turnRate: 3.2
+          });
+        }
+      }
+
+      // 3B. Naval Patrol Units (Ships with realistic hydrodynamic bobbing)
+      const hasNavalUnits = prov.units && prov.units.some(u => 
+        ['patrol_ships', 'frigates', 'destroyers', 'submarines', 'aircraft_carriers'].includes(u.type) && u.count > 0
+      );
+      if ((prov.hasPort || prov.terrain === 'Coastal' || hasNavalUnits) && unitsGroup) {
+        const oceanRadius = radius + 0.004;
+        const s1 = latLngToVector3(prov.lat + 1.2, prov.lng + 1.8, oceanRadius);
+        const s2 = latLngToVector3(prov.lat - 1.2, prov.lng + 2.5, oceanRadius);
+        const sMid = s1.clone().add(s2).multiplyScalar(0.5).normalize().multiplyScalar(oceanRadius + 0.008);
+
+        const shipMesh = createShipMesh(colorHex);
+        unitsGroup.add(shipMesh);
+        sim.addUnit({
+          id: `ship-${prov.id}`,
+          type: 'ship',
+          mesh: shipMesh,
+          x: s1.x,
+          y: s1.y,
+          z: s1.z,
+          route: [
+            { x: s1.x, y: s1.y, z: s1.z },
+            { x: sMid.x, y: sMid.y, z: sMid.z },
+            { x: s2.x, y: s2.y, z: s2.z }
+          ],
+          speed: 0.05,
+          turnRate: 1.8
+        });
+      }
+
+      // 3C. Air Superiority Fighter Squadrons
+      const hasAircraft = (prov.hasAirbase || prov.hasCapital) || (
+        prov.units && prov.units.some(u => 
+          ['fighters', 'bombers', 'transport_aircraft', 'recon_aircraft', 'drones'].includes(u.type) && u.count > 0
+        )
+      );
+      if (hasAircraft && unitsGroup) {
+        const airRadius = radius + 0.038;
+        const a1 = latLngToVector3(prov.lat + 2.5, prov.lng, airRadius);
+        const a2 = latLngToVector3(prov.lat - 2.5, prov.lng + 3.0, airRadius);
+        const a3 = latLngToVector3(prov.lat, prov.lng - 3.0, airRadius);
+
+        const airMesh = createAircraftMesh(colorHex);
+        unitsGroup.add(airMesh);
+        sim.addUnit({
+          id: `air-${prov.id}`,
+          type: 'aircraft',
+          mesh: airMesh,
+          x: a1.x,
+          y: a1.y,
+          z: a1.z,
+          route: [
+            { x: a1.x, y: a1.y, z: a1.z },
+            { x: a2.x, y: a2.y, z: a2.z },
+            { x: a3.x, y: a3.y, z: a3.z }
+          ],
+          speed: 0.18,
+          turnRate: 4.5
+        });
+      }
+    });
   }, [provinces, countries, selectedProvinceId, recentBattles, currentTurn]);
+
+  // Synchronize Simulation Pause/Resume with Game Clock
+  useEffect(() => {
+    if (isPaused) {
+      unitSimulationRef.current.pause();
+    } else {
+      unitSimulationRef.current.resume();
+    }
+  }, [isPaused]);
 
   return (
     <div className="relative w-full h-full select-none cursor-grab active:cursor-grabbing">
