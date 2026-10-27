@@ -71,11 +71,11 @@ export const DevConsoleModal: React.FC<DevConsoleModalProps> = ({
               <h2 className="text-sm font-bold tracking-wider text-amber-300 uppercase flex items-center gap-2">
                 <span>{t('dev_tools_title', lang)}</span>
                 <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/40 text-[10px]">
-                  OVERRIDE LEVEL 5
+                  {t('dev_override_badge', lang)}
                 </span>
               </h2>
               <span className="text-[11px] text-amber-200/70">
-                Single-Player Sandbox & Developer Diagnostic Console · Ctrl+Shift+D
+                {t('dev_console_subtitle', lang)}
               </span>
             </div>
           </div>
@@ -89,9 +89,9 @@ export const DevConsoleModal: React.FC<DevConsoleModalProps> = ({
           {/* Master Dev Mode Toggle */}
           <div className="p-3 rounded bg-amber-950/20 border border-amber-500/40 flex items-center justify-between">
             <div>
-              <span className="font-bold text-white block">Developer Mode Sandbox Override</span>
+              <span className="font-bold text-white block">{t('dev_mode_override_title', lang)}</span>
               <span className="text-[11px] text-slate-400">
-                Unlocks infinite Gold (∞), testing spawners, instant building, and time manipulation.
+                {t('dev_mode_override_description', lang)}
               </span>
             </div>
             <button
@@ -102,7 +102,7 @@ export const DevConsoleModal: React.FC<DevConsoleModalProps> = ({
                   : 'bg-slate-800 text-slate-400 hover:text-white'
               }`}
             >
-              DEV MODE: {state.isDevMode ? 'ENABLED (ON)' : 'DISABLED (OFF)'}
+              {t('dev_mode_override_title', lang)}: {state.isDevMode ? t('dev_mode_enabled', lang) : t('dev_mode_disabled', lang)}
             </button>
           </div>
 
@@ -122,11 +122,7 @@ export const DevConsoleModal: React.FC<DevConsoleModalProps> = ({
                 <strong className="block text-white text-xs">
                   {lang === 'ar' ? 'ذهب غير محدود (∞)' : 'Unlimited Gold (∞)'}: {state.unlimitedGoldDev ? (lang === 'ar' ? 'مفعل' : 'ENABLED') : (lang === 'ar' ? 'معطل' : 'OFF')}
                 </strong>
-                <span className="text-[10px] text-slate-400">
-                  {lang === 'ar' 
-                    ? 'يمنح رصيداً لا نهائياً من الذهب دون إنقاص الخزينة عند الترقية أو النفقات.' 
-                    : 'Permits gold transactions without deduction and displays (∞) in HUD.'}
-                </span>
+                <span className="text-[10px] text-slate-400">{t('unlimited_gold_description', lang)}</span>
               </div>
             </button>
 
@@ -144,11 +140,7 @@ export const DevConsoleModal: React.FC<DevConsoleModalProps> = ({
                 <strong className="block text-white text-xs">
                   {lang === 'ar' ? 'مخزونات لا نهائية لكافة الموارد' : 'Toggle Infinite Stockpiles'}
                 </strong>
-                <span className="text-[10px] text-slate-400">
-                  {lang === 'ar'
-                    ? 'تخطي تكاليف المال والنفط والصلب والمؤن والطاقة وتفعيل البناء الفوري.'
-                    : 'Bypasses costs for all resources (Money, Oil, Steel, Food, Manpower).'}
-                </span>
+                <span className="text-[10px] text-slate-400">{t('unlimited_resources_description', lang)}</span>
               </div>
             </button>
 
@@ -166,9 +158,7 @@ export const DevConsoleModal: React.FC<DevConsoleModalProps> = ({
                 <strong className="block text-white text-xs">
                   {t('instant_build', lang)}: {state.instantBuildDev ? (lang === 'ar' ? 'مفعل' : 'ON') : (lang === 'ar' ? 'معطل' : 'OFF')}
                 </strong>
-                <span className="text-[10px] text-slate-400">
-                  {lang === 'ar' ? 'تشييد وترقية المباني وتجنيد الأفواج في صفر دورات.' : 'Construct buildings and deploy military units instantly.'}
-                </span>
+                <span className="text-[10px] text-slate-400">{t('instant_build_description', lang)}</span>
               </div>
             </button>
 
@@ -186,9 +176,7 @@ export const DevConsoleModal: React.FC<DevConsoleModalProps> = ({
                 <strong className="block text-white text-xs">
                   {t('instant_research', lang)}: {state.instantResearchDev ? (lang === 'ar' ? 'مفعل' : 'ON') : (lang === 'ar' ? 'معطل' : 'OFF')}
                 </strong>
-                <span className="text-[10px] text-slate-400">
-                  {lang === 'ar' ? 'فتح أي تقنية فور النقر عليها دون انتظار دورات البحث.' : 'Complete any selected technological doctrine in 0 turns.'}
-                </span>
+                <span className="text-[10px] text-slate-400">{t('instant_research_description', lang)}</span>
               </div>
             </button>
 
@@ -200,9 +188,7 @@ export const DevConsoleModal: React.FC<DevConsoleModalProps> = ({
               <Zap className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
               <div>
                 <strong className="block text-white text-xs">{t('add_resources', lang)}</strong>
-                <span className="text-[10px] text-slate-400">
-                  Adds +50k Money, Oil, Steel, Food, Manpower & +2k Tech Points.
-                </span>
+                <span className="text-[10px] text-slate-400">{t('add_resources_description', lang)}</span>
               </div>
             </button>
 
