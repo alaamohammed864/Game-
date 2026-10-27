@@ -29,7 +29,7 @@ import { evaluateDiplomaticProposal } from '../diplomacy/diplomacyEngine';
 import { simulateCombatEngagement } from '../combat/combatEngine';
 import { storage } from '../storage/db';
 import { sound } from '../audio/soundSystem';
-import { ensureBilateralRelation, setBilateralDiplomaticStatus, validateWarDeclaration } from '../diplomacy/diplomacyUtils';
+import { callDefensiveAllies, ensureBilateralRelation, setBilateralDiplomaticStatus, validateWarDeclaration } from '../diplomacy/diplomacyUtils';
 import { mergeUnitGroups } from '../utils/unitGroups';
 
 type Listener = () => void;
@@ -733,6 +733,15 @@ class GameStore {
     // Striking a treaty partner is a betrayal; then harmonize bilateral state to WAR safely
     this.registerTreatyBetrayal(player, defenderCountry);
     setBilateralDiplomaticStatus(player, defenderCountry, 'WAR', -50, s.currentTurn);
+    const interveningAllies = callDefensiveAllies(defenderCountry, player, s.countries, s.currentTurn);
+    interveningAllies.forEach(ally => s.notifications.unshift({
+      id: `allied_intervention_${s.currentTurn}_${ally.id}_${player.id}`,
+      turn: s.currentTurn,
+      type: 'DIPLOMACY',
+      title: 'Defensive Pact Activated',
+      message: `${ally.name} joined the war to defend ${defenderCountry.name}.`,
+      countryId: ally.id,
+    }));
 
     // Execute battle
     const battle = simulateCombatEngagement({
@@ -862,6 +871,15 @@ class GameStore {
 
     this.registerTreatyBetrayal(player, target);
     setBilateralDiplomaticStatus(player, target, 'WAR', -80, s.currentTurn);
+    const interveningAllies = callDefensiveAllies(target, player, s.countries, s.currentTurn);
+    interveningAllies.forEach(ally => s.notifications.unshift({
+      id: `allied_intervention_${s.currentTurn}_${ally.id}_${player.id}`,
+      turn: s.currentTurn,
+      type: 'DIPLOMACY',
+      title: 'Defensive Pact Activated',
+      message: `${ally.name} joined the war to defend ${target.name}.`,
+      countryId: ally.id,
+    }));
 
     sound.playCombatExplosion();
     s.notifications.unshift({

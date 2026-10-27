@@ -121,6 +121,32 @@ export function setBilateralDiplomaticStatus(
 }
 
 /**
+ * Defensive allies join a war against an aggressor when their partner is attacked.
+ * An ally already bound to the aggressor by its own alliance is kept neutral.
+ */
+export function callDefensiveAllies(
+  defender: Country,
+  aggressor: Country,
+  countries: Record<string, Country>,
+  turn: number
+): Country[] {
+  const joined: Country[] = [];
+  Object.values(countries).forEach(ally => {
+    if (ally.id === defender.id || ally.id === aggressor.id || !ally.isAlive) return;
+    const defenseRelation = ensureBilateralRelation(defender, ally)?.relAtoB;
+    if (!defenseRelation || !['ALLIANCE', 'DEFENSIVE_PACT'].includes(defenseRelation.status)) return;
+
+    const aggressorRelation = ensureBilateralRelation(ally, aggressor)?.relAtoB;
+    if (!aggressorRelation || aggressorRelation.status === 'WAR') return;
+    if (aggressorRelation.status === 'ALLIANCE' || aggressorRelation.status === 'DEFENSIVE_PACT') return;
+
+    setBilateralDiplomaticStatus(ally, aggressor, 'WAR', 0, turn);
+    joined.push(ally);
+  });
+  return joined;
+}
+
+/**
  * Validates whether country A can declare war on country B.
  */
 export function validateWarDeclaration(

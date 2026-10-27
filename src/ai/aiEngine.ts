@@ -11,7 +11,7 @@ import {
 } from '../types';
 import { BUILDING_DEFINITIONS, UNIT_DEFINITIONS, AI_DIFFICULTY_MODIFIERS, TECH_TREE } from '../game/config';
 import { simulateCombatEngagement } from '../combat/combatEngine';
-import { ensureBilateralRelation, setBilateralDiplomaticStatus, validateWarDeclaration } from '../diplomacy/diplomacyUtils';
+import { callDefensiveAllies, ensureBilateralRelation, setBilateralDiplomaticStatus, validateWarDeclaration } from '../diplomacy/diplomacyUtils';
 import { mergeUnitGroups } from '../utils/unitGroups';
 
 export interface AIExecutionResult {
@@ -171,6 +171,15 @@ export function processAITurn(
 
       if (aggressionScore > 0.45 && powerAdvantage >= 1.2 && rng() < (aggressionScore * 0.12 * diffConfig.reactionSpeed)) {
         setBilateralDiplomaticStatus(country, targetCountry, 'WAR', -50, turn);
+        const interveningAllies = callDefensiveAllies(targetCountry, country, countries, turn);
+        interveningAllies.forEach(ally => result.notifications.push({
+          id: `allied_intervention_${turn}_${ally.id}_${country.id}`,
+          turn,
+          type: 'DIPLOMACY',
+          title: 'Defensive Pact Activated',
+          message: `${ally.name} joined the war to defend ${targetCountry.name}.`,
+          countryId: ally.id,
+        }));
         result.notifications.push({
           id: `war_decl_${turn}_${countryId}_${targetId}`,
           turn,
