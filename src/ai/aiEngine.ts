@@ -7,7 +7,8 @@ import {
   MilitaryQueueItem,
   DiplomaticStatus,
   GameNotification,
-  BuildingType
+  BuildingType,
+  MissileStrikeRecord
 } from '../types';
 import { BUILDING_DEFINITIONS, UNIT_DEFINITIONS, AI_DIFFICULTY_MODIFIERS, TECH_TREE } from '../game/config';
 import { simulateCombatEngagement } from '../combat/combatEngine';
@@ -17,6 +18,7 @@ import { mergeUnitGroups } from '../utils/unitGroups';
 export interface AIExecutionResult {
   newBattles: BattleReport[];
   notifications: GameNotification[];
+  missileStrike?: MissileStrikeRecord;
 }
 
 export interface AIOptions {
@@ -432,6 +434,73 @@ export function processAITurn(
             countryId
           });
         }
+      }
+    }
+  }
+
+  // Launch a limited missile strike during an active war, observing cooldowns and interception defenses.
+  const warTargets = Object.values(provinces).filter(prov => {
+    const targetCountry = countries[prov.countryId];
+    return targetCountry?.isAlive && targetCountry.id !== countryId && country.relations[targetCountry.id]?.status === 'WAR';
+  });
+  const launchChance = personality === 'Aggressive' ? 0.42 : personality === 'Expansionist' ? 0.3 : 0.16;
+  if ((country.ballisticMissiles || 0) > 0 && turn - (country.lastMissileTurn ?? -10) >= 5 && warTargets.length > 0 && rng() < launchChance) {
+    const targetProv = [...warTargets].sort((a, b) => {
+      const score = (prov: Province) => {
+        const hasDefense = prov.units.some(u => u.type === 'air_defense');
+        const hasRadar = prov.buildings.some(building => building.type === 'radar_station');
+        const garrison = prov.units.reduce((sum, unit) => sum + unit.count, 0);
+        return prov.strategicImportance * 4 + garrison * 2 + prov.defenseLevel - (hasDefense ? 12 : 0) - (hasRadar ? 6 : 0);
+      };
+      return score(b) - score(a);
+    })[0];
+    const defendingCountry = countries[targetProv.countryId];
+    if (defendingCountry) {
+      const hasAirDefense = targetProv.units.some(u => u.type === 'air_defense');
+      const hasRadar = targetProv.buildings.some(b => b.type === 'radar_station');
+      const interceptChance = (hasAirDefense ? 0.35 : 0.05) + (hasRadar ? 0.15 : 0);
+      const intercepted = rng() < interceptChance;
+      const launchedAt = Date.now();
+      country.ballisticMissiles = Math.max(0, (country.ballisticMissiles || 0) - 1);
+      country.lastMissileTurn = turn;
+      result.missileStrike = {
+        id: `ai_strike_${turn}_${countryId}_${launchedAt}`,
+        targetProvinceId: targetProv.id,
+        turn,
+        outcome: intercepted ? 'INTERCEPTED' : 'HIT',
+        launchedAt,
+      };
+
+      if (intercepted) {
+        result.notifications.push({
+          id: `ai_strike_intercept_${turn}_${countryId}_${targetProv.id}`,
+          turn,
+          type: 'COMBAT',
+          title: 'Missile Intercepted',
+          message: `${defendingCountry.name} intercepted ${country.name}'s missile over ${targetProv.name}.`,
+          provinceId: targetProv.id,
+          countryId,
+        });
+      } else {
+        targetProv.defenseLevel = Math.max(0, targetProv.defenseLevel - 2);
+        targetProv.stability = Math.max(10, targetProv.stability - 35);
+        let unitsEliminated = 0;
+        targetProv.units.forEach(unit => {
+          const lost = Math.max(1, Math.round(unit.count * 0.4));
+          unit.count = Math.max(0, unit.count - lost);
+          unit.morale = Math.max(15, unit.morale - 40);
+          unitsEliminated += lost;
+        });
+        targetProv.units = targetProv.units.filter(unit => unit.count > 0);
+        result.notifications.push({
+          id: `ai_strike_hit_${turn}_${countryId}_${targetProv.id}`,
+          turn,
+          type: 'COMBAT',
+          title: 'Ballistic Missile Impact',
+          message: `${country.name}'s strike damaged ${targetProv.name}; ${unitsEliminated} unit groups were eliminated.`,
+          provinceId: targetProv.id,
+          countryId,
+        });
       }
     }
   }

@@ -1287,6 +1287,7 @@ export function generateInitialWorld(difficulty: AIDifficulty = 'NORMAL'): World
   Object.keys(countries).forEach(cId => {
     countries[cId].generals = createNationGenerals(cId);
     countries[cId].ballisticMissiles = 3;
+    countries[cId].lastMissileTurn = -10;
   });
 
   // Guarantee symmetric adjacency (a border must be crossable in both directions).

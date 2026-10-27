@@ -143,6 +143,7 @@ class GameStore {
       c.completedTechs ??= [];
       c.currentResearch ??= null;
       c.ballisticMissiles ??= 0;
+      c.lastMissileTurn ??= -10;
     });
     // Harmonize bilateral diplomacy
     const countryList = Object.values(loadedState.countries);
@@ -474,6 +475,12 @@ class GameStore {
             s.recentBattles.unshift(b);
             sound.playCombatExplosion();
           });
+        }
+
+        if (aiResult.missileStrike) {
+          s.missileStrikes = [...s.missileStrikes.slice(-7), aiResult.missileStrike];
+          if (aiResult.missileStrike.outcome === 'INTERCEPTED') sound.playAlertSiren();
+          else sound.playCombatExplosion();
         }
 
         if (aiResult.notifications.length > 0) {

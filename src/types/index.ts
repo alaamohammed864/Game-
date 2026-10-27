@@ -298,6 +298,7 @@ export interface Country {
   score: number;
   generals?: General[];
   ballisticMissiles?: number;
+  lastMissileTurn?: number;
 }
 
 export interface BattleReport {
