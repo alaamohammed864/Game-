@@ -339,6 +339,34 @@ export function processAITurn(
     return rel && rel.status === 'WAR';
   });
 
+  // Put AI generals on separate fronts so their combat bonuses affect actual engagements.
+  if (country.generals?.length) {
+    const frontlineProvinces = ownedProvinces.filter(prov => prov.neighborIds.some(neighborId => {
+      const neighbor = provinces[neighborId];
+      return neighbor && country.relations[neighbor.countryId]?.status === 'WAR';
+    }));
+    const assignedProvinceIds = new Set<string>();
+    country.generals.forEach(general => {
+      const candidates = (frontlineProvinces.length > 0 ? frontlineProvinces : ownedProvinces)
+        .filter(prov => !assignedProvinceIds.has(prov.id));
+      const scoreProvince = (prov: Province) => {
+        const specialtyUnit = general.specialization === 'AIR_SUPERIORITY'
+          ? prov.units.filter(unit => UNIT_DEFINITIONS[unit.type]?.branch === 'AIR')
+          : general.specialization === 'ARMOR_SPEARHEAD'
+          ? prov.units.filter(unit => unit.type === 'armored_units' || unit.type === 'mechanized_infantry')
+          : prov.units;
+        const forceValue = specialtyUnit.reduce((sum, unit) => {
+          const def = UNIT_DEFINITIONS[unit.type];
+          return sum + (def ? def.defense * unit.count : 0);
+        }, 0);
+        return forceValue * (general.defenseBonus + 0.25) + prov.strategicImportance * 2 + prov.defenseLevel;
+      };
+      const assignment = [...candidates].sort((a, b) => scoreProvince(b) - scoreProvince(a))[0];
+      general.assignedProvinceId = assignment?.id ?? null;
+      if (assignment) assignedProvinceIds.add(assignment.id);
+    });
+  }
+
   if (hostileNeighborProvs.length > 0) {
     // Select best tactical target
     const targetProv = hostileNeighborProvs.reduce((prev, curr) => {
