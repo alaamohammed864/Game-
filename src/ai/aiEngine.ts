@@ -273,21 +273,35 @@ export function processAITurn(
 
   if (activeMilQueues < 3 && country.resources.manpower > 2000 && country.resources.money > 1200) {
     let unitToBuild: UnitType = 'infantry';
+    const airbaseProvince = ownedProvinces.find(p => p.hasAirbase || p.buildings.some(b => b.type === 'airport'));
+    const portProvince = ownedProvinces.find(p => p.hasPort || p.buildings.some(b => b.type === 'port'));
 
-    if (personality === 'Aggressive') {
+    // Expand beyond ground forces when the country has the required infrastructure.
+    if (airbaseProvince && country.resources.energy >= 300 && country.resources.rareMaterials >= 400 && rng() > 0.45) {
+      unitToBuild = 'drones';
+    } else if (airbaseProvince && country.resources.oil >= 600 && country.resources.rareMaterials >= 500 && rng() > 0.7) {
+      unitToBuild = 'fighters';
+    } else if (portProvince && country.resources.steel >= 600 && country.resources.oil >= 300 && rng() > 0.55) {
+      unitToBuild = 'patrol_ships';
+    } else if (personality === 'Aggressive') {
       unitToBuild = country.resources.steel > 1000 && country.resources.oil > 600 ? 'armored_units' : 'artillery';
     } else if (personality === 'Defensive') {
       unitToBuild = country.resources.energy > 400 ? 'air_defense' : 'infantry';
     } else if (country.resources.steel > 1200 && country.resources.oil > 800) {
       unitToBuild = rng() > 0.4 ? 'armored_units' : 'mechanized_infantry';
-    } else if (country.resources.energy > 600 && rng() > 0.5) {
+    } else if (airbaseProvince && country.resources.energy > 600 && rng() > 0.5) {
       unitToBuild = 'drones';
     } else {
       unitToBuild = 'infantry';
     }
 
     const uDef = UNIT_DEFINITIONS[unitToBuild];
-    if (uDef) {
+    const spawnProv = uDef?.branch === 'AIR'
+      ? airbaseProvince
+      : uDef?.branch === 'NAVY'
+      ? portProvince
+      : ownedProvinces[0];
+    if (uDef && spawnProv) {
       let canAfford = true;
       for (const [res, cost] of Object.entries(uDef.cost)) {
         const available = country.resources[res as keyof typeof country.resources] || 0;
@@ -304,7 +318,6 @@ export function processAITurn(
             (country.resources[res as keyof typeof country.resources] || 0) - (cost || 0)
           );
         }
-        const spawnProv = ownedProvinces[0];
         militaryQueue.push({
           id: `mq_ai_${turn}_${countryId}_${unitToBuild}_${Date.now()}`,
           provinceId: spawnProv.id,
