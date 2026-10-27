@@ -35,6 +35,7 @@ export interface UnitConfig {
   speed?: number;
   turnRate?: number;
   heading?: number;
+  routeMode?: 'once' | 'loop' | 'ping-pong';
 }
 
 export interface SimUnit {
@@ -56,6 +57,7 @@ export interface SimUnit {
   baseY: number;
   active: boolean;
   reachedDestination: boolean;
+  routeMode: 'once' | 'loop' | 'ping-pong';
 }
 
 export class UnitSimulation {
@@ -104,11 +106,12 @@ export class UnitSimulation {
       speed: Math.max(0, config.speed ?? 5),
       turnRate: Math.max(0.1, config.turnRate ?? 2.5),
       heading: config.heading ?? 0,
-      bobAmplitude: config.type === "ship" ? 0.08 : 0,
-      bobFrequency: config.type === "ship" ? 1.5 : 0,
+      bobAmplitude: config.type === "ship" ? 0.008 : config.type === "aircraft" ? 0.003 : 0,
+      bobFrequency: config.type === "ship" ? 1.5 : config.type === "aircraft" ? 2.2 : 0,
       baseY: config.y ?? 0,
       active: true,
-      reachedDestination: false
+      reachedDestination: false,
+      routeMode: config.routeMode ?? 'ping-pong'
     };
 
     this.units.set(unit.id, unit);

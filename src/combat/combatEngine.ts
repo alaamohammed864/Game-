@@ -265,6 +265,8 @@ export function simulateCombatEngagement(input: CombatEngagementInput): BattleRe
     id: `battle_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
     turn,
     provinceId: targetProvince.id,
+    sourceProvinceId: input.sourceProvinceId,
+    attackingUnitTypes: [...new Set(attackingUnits.map(unit => unit.type))],
     provinceName: targetProvince.name,
     attackerCountryId: attackerCountry.id,
     attackerCountryName: attackerCountry.name,

@@ -305,6 +305,8 @@ export interface BattleReport {
   id: string;
   turn: number;
   provinceId: string;
+  sourceProvinceId?: string;
+  attackingUnitTypes?: UnitType[];
   provinceName: string;
   attackerCountryId: string;
   attackerCountryName: string;

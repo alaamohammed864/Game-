@@ -1,11 +1,80 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createEarthTexture, createBorderLines } from './realWorld';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { BattleReport, Country, MissileStrikeRecord, Province } from '../types';
 import { evaluateProvinceUnitState, ProvinceUnitState } from '../utils/unitState';
 import { UnitSimulation } from '../simulation/UnitSimulation';
 import { createVehicleMesh, createShipMesh, createAircraftMesh } from '../simulation/unitMeshFactory';
+
+type UnitModelKind = 'tank' | 'ship' | 'aircraft';
+type UnitModelTemplates = Partial<Record<UnitModelKind, THREE.Group>>;
+
+const UNIT_MODEL_PATHS: Record<UnitModelKind, string> = {
+  tank: '/models/units/main-battle-tank.glb',
+  ship: '/models/units/ship-large.glb',
+  aircraft: '/models/units/f15-fighter.glb'
+};
+
+function cloneUnitModel(source: THREE.Group, targetLength: number): THREE.Group {
+  const model = source.clone(true);
+  model.traverse((object) => {
+    if (!(object as THREE.Mesh).isMesh) return;
+    const mesh = object as THREE.Mesh;
+    mesh.geometry = mesh.geometry.clone();
+    mesh.material = Array.isArray(mesh.material)
+      ? mesh.material.map(material => material.clone())
+      : mesh.material.clone();
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+  });
+
+  const bounds = new THREE.Box3().setFromObject(model);
+  const size = bounds.getSize(new THREE.Vector3());
+  const center = bounds.getCenter(new THREE.Vector3());
+  const largestDimension = Math.max(size.x, size.y, size.z) || 1;
+  const scale = targetLength / largestDimension;
+  model.scale.setScalar(scale);
+  model.position.sub(center.multiplyScalar(scale));
+  return model;
+}
+
+function makeGlobeRoute(start: THREE.Vector3, end: THREE.Vector3, altitude: number): Array<{ x: number; y: number; z: number }> {
+  const from = start.clone().normalize();
+  const to = end.clone().normalize();
+  const angle = from.angleTo(to);
+  const axis = new THREE.Vector3().crossVectors(from, to).normalize();
+  const steps = Math.max(12, Math.ceil(angle / 0.012));
+  return Array.from({ length: steps + 1 }, (_, index) => {
+    const progress = index / steps;
+    const direction = axis.lengthSq() > 1e-8
+      ? from.clone().applyAxisAngle(axis, angle * progress)
+      : from.clone();
+    const lift = altitude * Math.sin(Math.PI * progress);
+    const point = direction.multiplyScalar(1.012 + lift);
+    return { x: point.x, y: point.y, z: point.z };
+  });
+}
+
+function disposeUnitModel(model: THREE.Group): void {
+  const disposedTextures = new Set<THREE.Texture>();
+  model.traverse((object) => {
+    if (!(object as THREE.Mesh).isMesh) return;
+    const mesh = object as THREE.Mesh;
+    mesh.geometry.dispose();
+    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    materials.forEach((material) => {
+      Object.values(material).forEach((value) => {
+        if (value instanceof THREE.Texture && !disposedTextures.has(value)) {
+          disposedTextures.add(value);
+          value.dispose();
+        }
+      });
+      material.dispose();
+    });
+  });
+}
 
 interface Globe3DProps {
   provinces: Record<string, Province>;
@@ -41,6 +110,8 @@ export const Globe3D: React.FC<Globe3DProps> = ({
   currentTurn = 1
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
+  const unitModelTemplatesRef = useRef<UnitModelTemplates>({});
+  const [unitModelsReady, setUnitModelsReady] = useState(false);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -59,6 +130,45 @@ export const Globe3D: React.FC<Globe3DProps> = ({
   const zoomDistanceRef = useRef<number>(2.4);
   const isPausedRef = useRef<boolean>(isPaused); // the animation loop lives in a []-deps effect, so it needs a ref
   isPausedRef.current = isPaused;
+
+  useEffect(() => {
+    let cancelled = false;
+    const loader = new GLTFLoader();
+    void Promise.all(Object.entries(UNIT_MODEL_PATHS).map(async ([kind, path]) => {
+      try {
+        const gltf = await loader.loadAsync(path);
+        return [kind as UnitModelKind, gltf.scene] as const;
+      } catch (error) {
+        console.warn(`Could not load ${kind} model; using the built-in fallback.`, error);
+        return null;
+      }
+    })).then((entries) => {
+      if (cancelled) return;
+      const loadedModels: UnitModelTemplates = {};
+      entries.forEach((entry) => {
+        if (entry) loadedModels[entry[0]] = entry[1];
+      });
+      unitModelTemplatesRef.current = loadedModels;
+      setUnitModelsReady(true);
+    });
+
+    return () => {
+      cancelled = true;
+      Object.values(unitModelTemplatesRef.current).forEach(model => model && disposeUnitModel(model));
+      unitModelTemplatesRef.current = {};
+    };
+  }, []);
+
+  const createUnitVisual = (kind: UnitModelKind, color: number): THREE.Group => {
+    const template = unitModelTemplatesRef.current[kind];
+    if (template) {
+      const targetLength = kind === 'aircraft' ? 0.085 : kind === 'ship' ? 0.09 : 0.055;
+      return cloneUnitModel(template, targetLength);
+    }
+    if (kind === 'ship') return createShipMesh(color);
+    if (kind === 'aircraft') return createAircraftMesh(color);
+    return createVehicleMesh(color);
+  };
   const latLngToVector3 = (lat: number, lng: number, radius: number): THREE.Vector3 => {
     const phi = (90 - lat) * (Math.PI / 180);
     const theta = (lng + 180) * (Math.PI / 180);
@@ -306,6 +416,23 @@ export const Globe3D: React.FC<Globe3DProps> = ({
       const sim = unitSimulationRef.current;
       sim.update(dt);
 
+      for (const unit of sim.units.values()) {
+        const mesh = unit.mesh as THREE.Group | null;
+        if (!mesh?.isObject3D) continue;
+        const up = new THREE.Vector3(unit.position.x, unit.position.y, unit.position.z).normalize();
+        const nextPoint = unit.route[unit.routeIndex];
+        let forward = nextPoint
+          ? new THREE.Vector3(nextPoint.x - unit.position.x, nextPoint.y - unit.position.y, nextPoint.z - unit.position.z)
+          : new THREE.Vector3(0, 0, 1);
+        forward.projectOnPlane(up);
+        if (forward.lengthSq() < 1e-8) forward = new THREE.Vector3(0, 0, 1).projectOnPlane(up);
+        if (forward.lengthSq() < 1e-8) forward = new THREE.Vector3(1, 0, 0).projectOnPlane(up);
+        forward.normalize();
+        const right = new THREE.Vector3().crossVectors(up, forward).normalize();
+        forward.crossVectors(right, up).normalize();
+        mesh.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(right, up, forward));
+      }
+
       for (const projectile of combatProjectilesRef.current) {
         if (!sim.paused) projectile.age += dt;
         const progress = Math.min(1, Math.max(0, projectile.age / projectile.duration));
@@ -328,12 +455,17 @@ export const Globe3D: React.FC<Globe3DProps> = ({
         }
       }
 
-      // Loop completed routes so units patrol continuously
+      // Only patrol routes loop. Assault convoys reach their actual destination and stop.
       for (const unit of sim.units.values()) {
         if (unit.reachedDestination && unit.route && unit.route.length > 1) {
-          unit.route = [...unit.route].reverse();
-          unit.routeIndex = 0;
-          unit.reachedDestination = false;
+          if (unit.routeMode === 'loop') {
+            unit.routeIndex = 0;
+            unit.reachedDestination = false;
+          } else if (unit.routeMode === 'ping-pong') {
+            unit.route = [...unit.route].reverse();
+            unit.routeIndex = 0;
+            unit.reachedDestination = false;
+          }
         }
       }
 
@@ -737,7 +869,7 @@ export const Globe3D: React.FC<Globe3DProps> = ({
       const country = countries[prov.countryId];
       const colorHex = country ? parseInt(country.color.replace('#', '0x'), 16) : 0x38bdf8;
 
-      // 3A. Armored & Mechanized Ground Units
+      // Garrison units stay at their own province; they do not advance toward a random neighbor.
       const hasArmor = prov.units && prov.units.some(u => 
         ['armored_units', 'mechanized_infantry', 'artillery'].includes(u.type) && u.count > 0
       );
@@ -745,59 +877,30 @@ export const Globe3D: React.FC<Globe3DProps> = ({
         ['infantry', 'special_forces'].includes(u.type) && u.count > 20
       );
 
-      if ((hasArmor || hasInfantry) && prov.neighborIds.length > 0 && unitsGroup) {
-        const targetProv = provinces[prov.neighborIds[0]];
-        if (targetProv) {
-          const v1 = latLngToVector3(prov.lat, prov.lng, radius + 0.006);
-          const v2 = latLngToVector3(targetProv.lat, targetProv.lng, radius + 0.006);
-          const mid = v1.clone().add(v2).multiplyScalar(0.5).normalize().multiplyScalar(radius + 0.014);
-
-          const vehMesh = createVehicleMesh(colorHex);
-          unitsGroup.add(vehMesh);
-          sim.addUnit({
-            id: `veh-${prov.id}`,
-            type: 'vehicle',
-            mesh: vehMesh,
-            x: v1.x,
-            y: v1.y,
-            z: v1.z,
-            route: [
-              { x: v1.x, y: v1.y, z: v1.z },
-              { x: mid.x, y: mid.y, z: mid.z },
-              { x: v2.x, y: v2.y, z: v2.z }
-            ],
-            speed: 0.09,
-            turnRate: 3.2
-          });
-        }
+      if ((hasArmor || hasInfantry) && unitsGroup) {
+        const position = latLngToVector3(prov.lat, prov.lng, radius + 0.018);
+        const vehicle = createUnitVisual('tank', colorHex);
+        unitsGroup.add(vehicle);
+        sim.addUnit({ id: `garrison-${prov.id}`, type: 'vehicle', mesh: vehicle, x: position.x, y: position.y, z: position.z, speed: 0 });
       }
 
-      // 3B. Naval Patrol Units (Ships with realistic hydrodynamic bobbing)
+      // Naval models only appear for provinces that actually have a fleet.
       const hasNavalUnits = prov.units && prov.units.some(u => 
         ['patrol_ships', 'frigates', 'destroyers', 'submarines', 'aircraft_carriers'].includes(u.type) && u.count > 0
       );
-      if ((prov.hasPort || prov.terrain === 'Coastal' || hasNavalUnits) && unitsGroup) {
+      if (hasNavalUnits && unitsGroup) {
         const oceanRadius = radius + 0.004;
-        const s1 = latLngToVector3(prov.lat + 1.2, prov.lng + 1.8, oceanRadius);
-        const s2 = latLngToVector3(prov.lat - 1.2, prov.lng + 2.5, oceanRadius);
-        const sMid = s1.clone().add(s2).multiplyScalar(0.5).normalize().multiplyScalar(oceanRadius + 0.008);
-
-        const shipMesh = createShipMesh(colorHex);
+        const shipPosition = latLngToVector3(prov.lat + 0.45, prov.lng + 0.55, oceanRadius);
+        const shipMesh = createUnitVisual('ship', colorHex);
         unitsGroup.add(shipMesh);
         sim.addUnit({
           id: `ship-${prov.id}`,
           type: 'ship',
           mesh: shipMesh,
-          x: s1.x,
-          y: s1.y,
-          z: s1.z,
-          route: [
-            { x: s1.x, y: s1.y, z: s1.z },
-            { x: sMid.x, y: sMid.y, z: sMid.z },
-            { x: s2.x, y: s2.y, z: s2.z }
-          ],
-          speed: 0.05,
-          turnRate: 1.8
+          x: shipPosition.x,
+          y: shipPosition.y,
+          z: shipPosition.z,
+          speed: 0
         });
       }
 
@@ -808,12 +911,12 @@ export const Globe3D: React.FC<Globe3DProps> = ({
         )
       );
       if (hasAircraft && unitsGroup) {
-        const airRadius = radius + 0.038;
-        const a1 = latLngToVector3(prov.lat + 2.5, prov.lng, airRadius);
-        const a2 = latLngToVector3(prov.lat - 2.5, prov.lng + 3.0, airRadius);
-        const a3 = latLngToVector3(prov.lat, prov.lng - 3.0, airRadius);
-
-        const airMesh = createAircraftMesh(colorHex);
+        const airRadius = radius + 0.045;
+        const a1 = latLngToVector3(prov.lat + 0.35, prov.lng, airRadius);
+        const a2 = latLngToVector3(prov.lat, prov.lng + 0.35, airRadius);
+        const a3 = latLngToVector3(prov.lat - 0.35, prov.lng, airRadius);
+        const a4 = latLngToVector3(prov.lat, prov.lng - 0.35, airRadius);
+        const airMesh = createUnitVisual('aircraft', colorHex);
         unitsGroup.add(airMesh);
         sim.addUnit({
           id: `air-${prov.id}`,
@@ -825,14 +928,53 @@ export const Globe3D: React.FC<Globe3DProps> = ({
           route: [
             { x: a1.x, y: a1.y, z: a1.z },
             { x: a2.x, y: a2.y, z: a2.z },
-            { x: a3.x, y: a3.y, z: a3.z }
+            { x: a3.x, y: a3.y, z: a3.z },
+            { x: a4.x, y: a4.y, z: a4.z }
           ],
-          speed: 0.18,
-          turnRate: 4.5
+          speed: 0.012,
+          turnRate: 2.4,
+          routeMode: 'loop'
         });
       }
     });
-  }, [provinces, countries, selectedProvinceId, recentBattles, missileStrikes, currentTurn]);
+
+    // Animate only battles initiated this turn, along the actual source-to-target great-circle route.
+    recentBattles.filter(battle => battle.turn === currentTurn && battle.sourceProvinceId).forEach((battle) => {
+      const sourceProvince = provinces[battle.sourceProvinceId!];
+      const targetProvince = provinces[battle.provinceId];
+      if (!sourceProvince || !targetProvince || !unitsGroup) return;
+
+      const types = battle.attackingUnitTypes ?? [];
+      const hasAir = types.some(type => ['fighters', 'bombers', 'transport_aircraft', 'recon_aircraft', 'drones'].includes(type));
+      const hasNaval = types.some(type => ['patrol_ships', 'frigates', 'destroyers', 'submarines', 'aircraft_carriers'].includes(type));
+      const source = latLngToVector3(sourceProvince.lat, sourceProvince.lng, radius + 0.008);
+      const target = latLngToVector3(targetProvince.lat, targetProvince.lng, radius + 0.008);
+
+      const assaultTypes: UnitModelKind[] = [];
+      if (types.some(type => ['armored_units', 'mechanized_infantry', 'artillery', 'infantry', 'special_forces'].includes(type))) assaultTypes.push('tank');
+      if (hasNaval && sourceProvince.hasPort && targetProvince.terrain === 'Coastal') assaultTypes.push('ship');
+      if (hasAir) assaultTypes.push('aircraft');
+      if (!assaultTypes.length) assaultTypes.push('tank');
+
+      assaultTypes.forEach((kind) => {
+        const assault = createUnitVisual(kind, parseInt(countries[battle.attackerCountryId]?.color.replace('#', '0x') ?? '0x38bdf8', 16));
+        unitsGroup.add(assault);
+        const route = makeGlobeRoute(source, target, kind === 'aircraft' ? 0.06 : 0.012);
+        sim.addUnit({
+          id: `assault-${battle.id}-${kind}`,
+          type: kind === 'aircraft' ? 'aircraft' : kind === 'ship' ? 'ship' : 'assault',
+          mesh: assault,
+          x: route[0].x,
+          y: route[0].y,
+          z: route[0].z,
+          route,
+          speed: kind === 'aircraft' ? 0.42 : kind === 'ship' ? 0.18 : 0.22,
+          turnRate: 2.8,
+          routeMode: 'once'
+        });
+      });
+    });
+  }, [provinces, countries, selectedProvinceId, recentBattles, missileStrikes, currentTurn, unitModelsReady]);
 
   // Synchronize Simulation Pause/Resume with Game Clock
   useEffect(() => {
