@@ -32,7 +32,7 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
                 {t('battle_report_title', lang)}
               </h2>
               <span className="text-xs font-mono text-slate-400">
-                Theatre of {report.provinceName} · Turn {report.turn}
+                {t('theatre', lang)}: {report.provinceName} · {t('turn', lang)} {report.turn}
               </span>
             </div>
           </div>
@@ -51,10 +51,10 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
             : 'bg-red-600/20 text-red-300 border-b border-red-900/50'
         }`}>
           {isAttackerWin ? <Trophy className="w-4 h-4 text-emerald-400" /> : <Skull className="w-4 h-4 text-red-400" />}
-          <span>{report.victor === 'ATTACKER' ? report.attackerCountryName : report.defenderCountryName} Victorious</span>
+          <span>{report.victor === 'ATTACKER' ? report.attackerCountryName : report.defenderCountryName} · {t('victorious', lang)}</span>
           {report.provinceCaptured && (
             <span className="ml-2 px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px]">
-              Territory Captured
+              {t('territory_captured_badge', lang)}
             </span>
           )}
         </div>
@@ -65,14 +65,14 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
           <div className="p-3 rounded bg-slate-900/70 border border-slate-800 space-y-2">
             <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
               <span className="font-bold text-white truncate">{report.attackerCountryName}</span>
-              <span className="text-[10px] text-cyan-400">ATTACKER</span>
+              <span className="text-[10px] text-cyan-400">{t('attacker_label', lang)}</span>
             </div>
             <div className="flex justify-between text-slate-300">
               <span>{t('combat_power', lang)}:</span>
               <span className="font-bold text-cyan-300">{report.attackerPower.toLocaleString()}</span>
             </div>
             <div className="flex justify-between text-slate-300">
-              <span>Supply Line:</span>
+              <span>{t('supply_line', lang)}:</span>
               <span className="text-emerald-400">{report.attackerSupplyPct}%</span>
             </div>
             <div className="pt-2 border-t border-slate-800/80 space-y-1 text-[11px]">
@@ -96,14 +96,14 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
           <div className="p-3 rounded bg-slate-900/70 border border-slate-800 space-y-2">
             <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
               <span className="font-bold text-white truncate">{report.defenderCountryName}</span>
-              <span className="text-[10px] text-rose-400">DEFENDER</span>
+              <span className="text-[10px] text-rose-400">{t('defender_label', lang)}</span>
             </div>
             <div className="flex justify-between text-slate-300">
               <span>{t('combat_power', lang)}:</span>
               <span className="font-bold text-rose-300">{report.defenderPower.toLocaleString()}</span>
             </div>
             <div className="flex justify-between text-slate-300">
-              <span>Supply Line:</span>
+              <span>{t('supply_line', lang)}:</span>
               <span className="text-emerald-400">{report.defenderSupplyPct}%</span>
             </div>
             <div className="pt-2 border-t border-slate-800/80 space-y-1 text-[11px]">
@@ -128,18 +128,18 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
         <div className="px-4 py-3 bg-slate-900/40 border-b border-slate-800 flex items-center justify-around text-xs font-mono">
           <div className="flex items-center gap-1.5 text-slate-300">
             <Shield className="w-4 h-4 text-cyan-400" />
-            <span>Terrain: <strong className="text-white">{report.terrain}</strong></span>
+            <span>{t('terrain', lang)}: <strong className="text-white">{report.terrain}</strong></span>
           </div>
           <div className="flex items-center gap-1.5 text-slate-300">
             <Wind className="w-4 h-4 text-indigo-400" />
-            <span>Air Dominance: <strong className="text-white">{report.airSuperiority}</strong></span>
+            <span>{t('air_superiority', lang)}: <strong className="text-white">{report.airSuperiority}</strong></span>
           </div>
         </div>
 
         {/* Tactical Log */}
         <div className="p-4 overflow-y-auto space-y-1.5 font-mono text-xs text-slate-300 bg-slate-950">
           <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block mb-1">
-            Tactical Engagement Feed:
+            {t('tactical_feed', lang)}
           </span>
           {report.detailsLog.map((log, idx) => (
             <div key={idx} className="flex gap-2 text-[11px]">
@@ -155,7 +155,7 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
             onClick={onClose}
             className="px-4 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-white font-mono text-xs font-bold"
           >
-            Acknowledge Dossier
+            {t('acknowledge_report', lang)}
           </button>
         </div>
       </div>

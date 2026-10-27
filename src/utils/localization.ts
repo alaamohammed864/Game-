@@ -135,6 +135,13 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     no_border_forces: 'No friendly provinces with stationed forces border this territory.',
     launch_from_base: 'Launch Assault From Staging Base:', units: 'units', select_task_force: 'Select Task Force Units to Commit:',
     committed: 'COMMITTED', standby: 'STANDBY', execute_assault: 'Execute Tactical Assault',
+    theatre: 'Theatre', victorious: 'Victorious', territory_captured_badge: 'Territory Captured', supply_line: 'Supply Line', attacker_label: 'ATTACKER', defender_label: 'DEFENDER', tactical_feed: 'Tactical Engagement Feed:', acknowledge_report: 'Acknowledge Dossier',
+    mission_industrial_title: 'Build an Industrial Heavyweight', mission_industrial_desc: 'Produce net income of at least 3,000 money and 800 steel per turn to fuel sovereign expansion.',
+    mission_territory_title: 'Territorial Sovereignty', mission_territory_desc: 'Control at least 6 strategic provinces on the world map.',
+    mission_tech_title: 'Technological Hegemony', mission_tech_desc: 'Complete research on at least 5 advanced technological breakthroughs.',
+    mission_alliance_title: 'Architect of Peace', mission_alliance_desc: 'Establish 2 or more formal military alliances or defensive pacts with foreign powers.',
+    mission_oil_title: 'Energy & Fuel Security', mission_oil_desc: 'Maintain a strategic oil reserve surplus of over 2,000 barrels.',
+    ready_to_claim: 'READY TO CLAIM', claim_bounty: 'Claim Bounty', fulfilled: 'Fulfilled', progress: 'Progress', rewards: 'REWARDS:',
   },
   ar: {
     game_title: 'القيادة العالمية: عصر الاستراتيجية',
@@ -270,6 +277,13 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     no_border_forces: 'لا توجد قوات صديقة متمركزة في أقاليم مجاورة لهذا الإقليم.',
     launch_from_base: 'اختر إقليم الانطلاق للهجوم:', units: 'وحدات', select_task_force: 'اختر القوات المشاركة في الهجوم:',
     committed: 'مشاركة', standby: 'احتياط', execute_assault: 'تنفيذ الهجوم التكتيكي',
+    theatre: 'ساحة القتال', victorious: 'حقق النصر', territory_captured_badge: 'تم الاستيلاء على الإقليم', supply_line: 'خط الإمداد', attacker_label: 'المهاجم', defender_label: 'المدافع', tactical_feed: 'سجل الاشتباك التكتيكي:', acknowledge_report: 'إغلاق التقرير',
+    mission_industrial_title: 'بناء قوة صناعية كبرى', mission_industrial_desc: 'حقق صافي دخل لا يقل عن ٣٠٠٠ من المال و٨٠٠ من الصلب في كل دورة لدعم التوسع.',
+    mission_territory_title: 'السيادة الإقليمية', mission_territory_desc: 'سيطر على ٦ أقاليم استراتيجية على الأقل في خريطة العالم.',
+    mission_tech_title: 'الهيمنة التقنية', mission_tech_desc: 'أكمل أبحاث ٥ تقنيات متقدمة على الأقل.',
+    mission_alliance_title: 'صانع السلام', mission_alliance_desc: 'أقم تحالفين عسكريين رسميين أو معاهدتي دفاع مشترك مع قوى أجنبية على الأقل.',
+    mission_oil_title: 'أمن الطاقة والوقود', mission_oil_desc: 'حافظ على فائض احتياطي نفطي استراتيجي يتجاوز ٢٠٠٠ برميل.',
+    ready_to_claim: 'جاهزة للمطالبة', claim_bounty: 'استلام المكافأة', fulfilled: 'مكتملة', progress: 'التقدم', rewards: 'المكافآت:',
   }
 };
 
