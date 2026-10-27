@@ -23,7 +23,7 @@ import {
 } from './config';
 import { calculateCountryEconomy, executeMarketTrade } from '../economy/economyEngine';
 import { processAITurn } from '../ai/aiEngine';
-import { maybeTriggerRandomEvent } from './eventsEngine';
+import { maybeTriggerRandomEvent, migrateEventTranslationKeys } from './eventsEngine';
 import { generateProvinceIntel } from '../intelligence/intelligenceEngine';
 import { evaluateDiplomaticProposal } from '../diplomacy/diplomacyEngine';
 import { simulateCombatEngagement } from '../combat/combatEngine';
@@ -131,6 +131,7 @@ class GameStore {
     loadedState.notifications ??= [];
     loadedState.recentBattles ??= [];
     loadedState.activeEvents ??= [];
+    loadedState.activeEvents = loadedState.activeEvents.map(migrateEventTranslationKeys);
     loadedState.intelReports ??= [];
     loadedState.constructionQueue ??= [];
     loadedState.militaryQueue ??= [];
@@ -497,7 +498,7 @@ class GameStore {
         id: `notif_${maybeEvent.id}`,
         turn: s.currentTurn,
         type: 'EVENT',
-        title: `Directive: ${maybeEvent.titleKey}`,
+        title: 'new_directive_alert',
         message: maybeEvent.descKey
       });
       sound.playAlertSiren();

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { GameNotification } from '../types';
 import { Bell, ChevronUp, ChevronDown, Swords, Shield, AlertCircle, Info } from 'lucide-react';
-import { Language } from '../utils/localization';
+import { Language, t } from '../utils/localization';
 
 interface BottomFeedProps {
   notifications: GameNotification[];
@@ -46,14 +46,14 @@ export const BottomFeed: React.FC<BottomFeedProps> = ({
               {latestNotif ? getIcon(latestNotif.type) : <Bell className="w-3.5 h-3.5 text-slate-400" />}
             </span>
             <div className="truncate text-[11px]">
-              <strong className="text-white mr-1.5">{latestNotif?.title || 'Radar Quiet'}</strong>
-              <span className="text-slate-400">{latestNotif?.message || 'No active operational alerts.'}</span>
+              <strong className="text-white mr-1.5">{latestNotif ? t(latestNotif.title, lang) : (lang === 'ar' ? 'الرادار هادئ' : 'Radar Quiet')}</strong>
+              <span className="text-slate-400">{latestNotif ? t(latestNotif.message, lang) : (lang === 'ar' ? 'لا توجد تنبيهات عمليات نشطة.' : 'No active operational alerts.')}</span>
             </div>
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
             <span className="text-[10px] text-slate-500 font-bold">
-              {notifications.length} ALERTS
+              {notifications.length} {lang === 'ar' ? 'تنبيهات' : 'ALERTS'}
             </span>
             {isExpanded ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronUp className="w-4 h-4 text-slate-400" />}
           </div>
@@ -79,10 +79,10 @@ export const BottomFeed: React.FC<BottomFeedProps> = ({
                 <span className="mt-0.5">{getIcon(n.type)}</span>
                 <div className="flex-1">
                   <div className="flex justify-between items-center">
-                    <strong className="text-slate-200">{n.title}</strong>
-                    <span className="text-[9px] text-slate-500">Turn {n.turn}</span>
+                    <strong className="text-slate-200">{t(n.title, lang)}</strong>
+                    <span className="text-[9px] text-slate-500">{t('turn', lang)} {n.turn}</span>
                   </div>
-                  <p className="text-slate-400 mt-0.5 leading-snug">{n.message}</p>
+                  <p className="text-slate-400 mt-0.5 leading-snug">{t(n.message, lang)}</p>
                 </div>
               </div>
             ))}

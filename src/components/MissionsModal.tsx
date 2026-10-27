@@ -50,6 +50,10 @@ export const MissionsModal: React.FC<MissionsModalProps> = ({
           {missions.map(mission => {
             const pct = Math.min(100, Math.round((mission.progress / mission.goal) * 100));
             const translationKeys = MISSION_TRANSLATION_KEYS[mission.id];
+            const translatedTitle = t(mission.titleKey, lang);
+            const translatedDescription = t(mission.descKey, lang);
+            const title = translatedTitle === mission.titleKey && translationKeys ? t(translationKeys[0], lang) : translatedTitle;
+            const description = translatedDescription === mission.descKey && translationKeys ? t(translationKeys[1], lang) : translatedDescription;
 
             return (
               <div
@@ -65,7 +69,7 @@ export const MissionsModal: React.FC<MissionsModalProps> = ({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                   <div>
                     <h3 className="font-bold text-white text-xs flex items-center gap-2">
-                      <span>{translationKeys ? t(translationKeys[0], lang) : mission.titleKey}</span>
+                      <span>{title}</span>
                       {mission.isCompleted && !mission.isClaimed && (
                         <span className="px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300 text-[10px] font-bold animate-pulse">
                           {t('ready_to_claim', lang)}
@@ -73,7 +77,7 @@ export const MissionsModal: React.FC<MissionsModalProps> = ({
                       )}
                     </h3>
                     <p className="text-[11px] text-slate-300 mt-0.5 leading-relaxed">
-                      {translationKeys ? t(translationKeys[1], lang) : mission.descKey}
+                      {description}
                     </p>
                   </div>
 

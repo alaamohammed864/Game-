@@ -680,8 +680,8 @@ export const AI_DIFFICULTY_MODIFIERS: Record<AIDifficulty, {
 export const INITIAL_MISSIONS: Mission[] = [
   {
     id: 'mission_industrial_giant',
-    titleKey: 'Build an Industrial Heavyweight',
-    descKey: 'Produce a net income of at least 3,000 Money and 800 Steel per turn to fuel sovereign expansion.',
+    titleKey: 'mission_industrial_title',
+    descKey: 'mission_industrial_desc',
     progress: 0,
     goal: 3000,
     isCompleted: false,
@@ -690,8 +690,8 @@ export const INITIAL_MISSIONS: Mission[] = [
   },
   {
     id: 'mission_strategic_territory',
-    titleKey: 'Territorial Sovereignty',
-    descKey: 'Control at least 6 strategic provinces on the world map.',
+    titleKey: 'mission_territory_title',
+    descKey: 'mission_territory_desc',
     progress: 4,
     goal: 6,
     isCompleted: false,
@@ -700,8 +700,8 @@ export const INITIAL_MISSIONS: Mission[] = [
   },
   {
     id: 'mission_tech_mastery',
-    titleKey: 'Technological Hegemony',
-    descKey: 'Complete research on at least 5 advanced technological breakthroughs.',
+    titleKey: 'mission_tech_title',
+    descKey: 'mission_tech_desc',
     progress: 0,
     goal: 5,
     isCompleted: false,
@@ -710,8 +710,8 @@ export const INITIAL_MISSIONS: Mission[] = [
   },
   {
     id: 'mission_coalition_architect',
-    titleKey: 'Architect of Peace',
-    descKey: 'Establish 2 or more formal Military Alliances or Defensive Pacts with foreign powers.',
+    titleKey: 'mission_alliance_title',
+    descKey: 'mission_alliance_desc',
     progress: 0,
     goal: 2,
     isCompleted: false,
@@ -720,8 +720,8 @@ export const INITIAL_MISSIONS: Mission[] = [
   },
   {
     id: 'mission_oil_autarky',
-    titleKey: 'Energy & Fuel Security',
-    descKey: 'Maintain a strategic oil reserve surplus of over 2,000 barrels.',
+    titleKey: 'mission_oil_title',
+    descKey: 'mission_oil_desc',
     progress: 0,
     goal: 2000,
     isCompleted: false,
