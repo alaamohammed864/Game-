@@ -8,7 +8,8 @@ export function generateProvinceIntel(
   targetCountry: Country,
   targetProvince: Province,
   turn: number,
-  playerHasIntelCenter: boolean
+  playerHasIntelCenter: boolean,
+  playerCountryId: string = 'valyria'
 ): IntelReport {
   // Real numbers
   let actualTroops = 0;
@@ -45,7 +46,7 @@ export function generateProvinceIntel(
     economicHealth = 'BOOMING';
   }
 
-  const isHostile = targetCountry.aiProfile.aggressionRate > 0.55 || targetCountry.relations['valyria']?.status === 'WAR';
+  const isHostile = targetCountry.aiProfile.aggressionRate > 0.55 || targetCountry.relations[playerCountryId]?.status === 'WAR';
 
   return {
     id: `intel_${targetProvince.id}_${turn}`,

@@ -43,8 +43,21 @@ export function evaluateDiplomaticProposal(
   const personality = targetCountry.aiProfile?.personality || 'Balanced';
   const targetAggression = targetCountry.aiProfile?.aggressionRate ?? 0.5;
 
+  const atWar = Boolean(relation && relation.status === 'WAR');
+  const isPeaceRequest = proposalType === 'PEACE_TREATY' || proposalType === 'PEACE';
+
+  // Peace can only be requested during a war; every other treaty requires peace first.
+  if (isPeaceRequest && !atWar) {
+    const msg = `No state of war exists with ${targetCountry.name}; there is nothing to negotiate.`;
+    return { accepted: false, message: msg, reason: msg };
+  }
+  if (atWar && !isPeaceRequest) {
+    const msg = `${targetCountry.name} will not discuss treaties while at war. Request a ceasefire first.`;
+    return { accepted: false, message: msg, reason: msg };
+  }
+
   // If in active war and requesting peace
-  if (proposalType === 'PEACE_TREATY' || (relation && relation.status === 'WAR' && proposalType === 'PEACE')) {
+  if (isPeaceRequest) {
     if (relation && relation.memory.warsFought > 2 && personality === 'Aggressive') {
       const msg = `${targetCountry.name} military high command rejects your ceasefire: "We will only accept unconditional submission."`;
       return {

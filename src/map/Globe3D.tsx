@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { createEarthTexture, createBorderLines } from './realWorld';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { BattleReport, Country, Province } from '../types';
@@ -52,6 +53,8 @@ export const Globe3D: React.FC<Globe3DProps> = ({
   const previousMousePositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const targetRotationRef = useRef<{ x: number; y: number }>({ x: 0.2, y: 0 });
   const zoomDistanceRef = useRef<number>(2.4);
+  const isPausedRef = useRef<boolean>(isPaused); // the animation loop lives in a []-deps effect, so it needs a ref
+  isPausedRef.current = isPaused;
   const latLngToVector3 = (lat: number, lng: number, radius: number): THREE.Vector3 => {
     const phi = (90 - lat) * (Math.PI / 180);
     const theta = (lng + 180) * (Math.PI / 180);
@@ -126,82 +129,27 @@ export const Globe3D: React.FC<Globe3DProps> = ({
     scene.add(globeGroup);
     globeGroupRef.current = globeGroup;
 
-    // Procedural Military Hologram Earth Texture
-    const canvas = document.createElement('canvas');
-    canvas.width = 2048;
-    canvas.height = 1024;
-    const ctx = canvas.getContext('2d')!;
-
-    // Deep ocean base
-    ctx.fillStyle = '#030816';
-    ctx.fillRect(0, 0, 2048, 1024);
-
-    // Tactical latitude/longitude lines
-    ctx.strokeStyle = 'rgba(30, 58, 138, 0.35)';
-    ctx.lineWidth = 1;
-    for (let x = 0; x <= 2048; x += 128) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, 1024);
-      ctx.stroke();
-    }
-    for (let y = 0; y <= 1024; y += 64) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(2048, y);
-      ctx.stroke();
-    }
-
-    // Equator highlight
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(0, 512);
-    ctx.lineTo(2048, 512);
-    ctx.stroke();
-
-    // Draw stylized continental landmass silhouettes
-    ctx.fillStyle = '#0a1936';
-    // North America / Valyria cluster
-    ctx.beginPath();
-    ctx.ellipse(450, 320, 220, 150, -0.2, 0, Math.PI * 2);
-    ctx.fill();
-    // Eurasia / Aethelgard / Kalyan
-    ctx.beginPath();
-    ctx.ellipse(1250, 280, 420, 180, 0.1, 0, Math.PI * 2);
-    ctx.fill();
-    // Africa / Solaria / Zul-Qarnain
-    ctx.beginPath();
-    ctx.ellipse(1050, 580, 220, 250, 0.15, 0, Math.PI * 2);
-    ctx.fill();
-    // Oceania / Archipelagos
-    ctx.beginPath();
-    ctx.ellipse(1680, 720, 160, 130, -0.1, 0, Math.PI * 2);
-    ctx.fill();
-    // South America
-    ctx.beginPath();
-    ctx.ellipse(620, 680, 170, 230, 0.25, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Landmass contour glow
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
-    ctx.lineWidth = 3;
-    ctx.stroke();
-
-    const globeTexture = new THREE.CanvasTexture(canvas);
-    globeTexture.colorSpace = THREE.SRGBColorSpace;
+    // Real-world earth: country fills + borders from Natural Earth data
+    const globeTexture = createEarthTexture();
+    globeTexture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 
     // Base Sphere
-    const sphereGeo = new THREE.SphereGeometry(1.0, 48, 48);
+    const sphereGeo = new THREE.SphereGeometry(1.0, 96, 96);
     const sphereMat = new THREE.MeshStandardMaterial({
       map: globeTexture,
-      roughness: 0.6,
-      metalness: 0.2,
-      emissive: new THREE.Color(0x020617),
-      emissiveIntensity: 0.8
+      roughness: 1,
+      metalness: 0,
+      envMapIntensity: 0.1,          // keep studio reflections from washing out the map
+      emissive: new THREE.Color(0xffffff),
+      emissiveMap: globeTexture,     // self-lit so country colours stay readable on the night side
+      emissiveIntensity: 0.55
     });
     const globeMesh = new THREE.Mesh(sphereGeo, sphereMat);
     globeGroup.add(globeMesh);
+
+    // Crisp 3D country borders and coastlines
+    const borderLines = createBorderLines();
+    globeGroup.add(borderLines);
 
     // Atmospheric Glow Outer Sphere
     const atmoGeo = new THREE.SphereGeometry(1.035, 32, 32);
@@ -326,7 +274,7 @@ export const Globe3D: React.FC<Globe3DProps> = ({
         );
 
         // Auto slow rotation if not dragging and running
-        if (!isDraggingRef.current && !isPaused) {
+        if (!isDraggingRef.current && !isPausedRef.current) {
           targetRotationRef.current.y += 0.0008;
         }
       }
@@ -409,6 +357,11 @@ export const Globe3D: React.FC<Globe3DProps> = ({
       atmoGeo.dispose();
       atmoMat.dispose();
       globeTexture.dispose();
+      borderLines.traverse(o => {
+        const l = o as THREE.LineSegments;
+        if (l.geometry) l.geometry.dispose();
+        if (l.material) (l.material as THREE.Material).dispose();
+      });
     };
   }, []);
 

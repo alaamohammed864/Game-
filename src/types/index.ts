@@ -147,6 +147,7 @@ export interface ConstructionQueueItem {
   targetLevel: number;
   turnsRemaining: number;
   totalTurns: number;
+  ownerCountryId?: string; // owner when queued; item is dropped if the province changes hands
 }
 
 export interface MilitaryQueueItem {
@@ -156,6 +157,7 @@ export interface MilitaryQueueItem {
   count: number;
   turnsRemaining: number;
   totalTurns: number;
+  ownerCountryId?: string; // owner when queued; item is dropped if the province changes hands
 }
 
 export interface Province {
@@ -375,6 +377,23 @@ export type ViewTab =
   | 'MISSIONS'
   | 'WAR_ROOM';
 
+export interface GameOverState {
+  status: 'VICTORY' | 'DEFEAT';
+  reason: string;
+  turn: number;
+  acknowledged?: boolean; // VICTORY only: player chose to keep playing
+}
+
+export type DiplomaticProposal =
+  | 'ALLIANCE'
+  | 'DEFENSIVE_PACT'
+  | 'NON_AGGRESSION'
+  | 'PEACE'
+  | 'PEACE_TREATY'
+  | 'TRADE_DEAL'
+  | 'TRADE_AGREEMENT'
+  | 'MILITARY_ACCESS';
+
 export interface GameState {
   version: string;
   gameId: string;
@@ -400,4 +419,5 @@ export interface GameState {
   missions: Mission[];
   intelReports: IntelReport[];
   tradeMarketPrices: Record<ResourceKey, number>;
+  gameOver?: GameOverState | null;
 }

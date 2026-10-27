@@ -198,7 +198,7 @@ export const DiplomacyModal: React.FC<DiplomacyModalProps> = ({
                 </span>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   <button
-                    disabled={relation?.status === 'ALLIANCE'}
+                    disabled={relation?.status === 'ALLIANCE' || relation?.status === 'WAR'}
                     onClick={() => handleProposal('ALLIANCE')}
                     className="p-2.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800 disabled:opacity-50 text-slate-200 text-xs text-left"
                   >
@@ -207,7 +207,7 @@ export const DiplomacyModal: React.FC<DiplomacyModalProps> = ({
                   </button>
 
                   <button
-                    disabled={relation?.status === 'DEFENSIVE_PACT'}
+                    disabled={relation?.status === 'DEFENSIVE_PACT' || relation?.status === 'WAR'}
                     onClick={() => handleProposal('DEFENSIVE_PACT')}
                     className="p-2.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800 disabled:opacity-50 text-slate-200 text-xs text-left"
                   >
@@ -216,7 +216,7 @@ export const DiplomacyModal: React.FC<DiplomacyModalProps> = ({
                   </button>
 
                   <button
-                    disabled={relation?.status === 'NON_AGGRESSION'}
+                    disabled={relation?.status === 'NON_AGGRESSION' || relation?.status === 'WAR'}
                     onClick={() => handleProposal('NON_AGGRESSION')}
                     className="p-2.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800 disabled:opacity-50 text-slate-200 text-xs text-left"
                   >
@@ -225,7 +225,7 @@ export const DiplomacyModal: React.FC<DiplomacyModalProps> = ({
                   </button>
 
                   <button
-                    disabled={relation?.tradeAgreementActive}
+                    disabled={relation?.tradeAgreementActive || relation?.status === 'WAR'}
                     onClick={() => handleProposal('TRADE_DEAL')}
                     className="p-2.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800 disabled:opacity-50 text-slate-200 text-xs text-left"
                   >
@@ -234,7 +234,7 @@ export const DiplomacyModal: React.FC<DiplomacyModalProps> = ({
                   </button>
 
                   <button
-                    disabled={relation?.militaryAccess}
+                    disabled={relation?.militaryAccess || relation?.status === 'WAR'}
                     onClick={() => handleProposal('MILITARY_ACCESS')}
                     className="p-2.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800 disabled:opacity-50 text-slate-200 text-xs text-left"
                   >

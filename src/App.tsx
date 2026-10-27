@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { GameState, ViewTab, BattleReport, BuildingType, UnitType, AIDifficulty } from './types';
 import { gameStore } from './game/gameStore';
 import { sound } from './audio/soundSystem';
@@ -6,7 +6,8 @@ import { Language, t } from './utils/localization';
 import { TitleScreen } from './components/TitleScreen';
 import { TopBar } from './components/TopBar';
 import { SideNav } from './components/SideNav';
-import { Globe3D } from './map/Globe3D';
+// three.js is large: load the 3D globe lazily so the title screen appears quickly
+const Globe3D = lazy(() => import('./map/Globe3D').then(m => ({ default: m.Globe3D })));
 import { Tactical2DMap } from './map/Tactical2DMap';
 import { SelectedProvincePanel } from './components/SelectedProvincePanel';
 import { BattleReportModal } from './components/BattleReportModal';
@@ -23,6 +24,7 @@ import { EconomyModal } from './components/EconomyModal';
 import { WarRoomModal } from './components/WarRoomModal';
 import { GeneralsModal } from './components/GeneralsModal';
 import { BottomFeed } from './components/BottomFeed';
+import { GameOverModal } from './components/GameOverModal';
 import { EventNotificationBanner } from './components/EventNotificationBanner';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { useDeviceCategory } from './hooks/useMediaQuery';
@@ -76,8 +78,11 @@ export default function App() {
       // Toggle Dev console with Ctrl+Shift+D
       if (e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd')) {
         e.preventDefault();
-        setIsDevConsoleOpen(prev => !prev);
-        sound.playSelect();
+        // Cheat console: available in dev builds, or in production only for sandbox (dev-mode) games
+        if (import.meta.env.DEV || gameStore.getState().isDevMode) {
+          setIsDevConsoleOpen(prev => !prev);
+          sound.playSelect();
+        }
       }
       // Space for Pause/Play
       if (e.code === 'Space' && !isInTitleScreen && (e.target as HTMLElement).tagName !== 'INPUT' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
@@ -120,42 +125,19 @@ export default function App() {
     sound.playSelect();
   };
 
-  // Resolve dynamic world event choices
+  // Resolve dynamic world event choices (validated and applied by the store)
   const handleResolveEventOption = (optionIndex: number, eventIndex: number = 0) => {
     const activeEvent = gameState.activeEvents[eventIndex] || gameState.activeEvents[0];
     if (!activeEvent) return;
-    const option = activeEvent.options[optionIndex];
-    const player = gameState.countries[gameState.playerCountryId];
-
-    if (option && player) {
-      if (option.cost) {
-        Object.entries(option.cost).forEach(([res, val]) => {
-          player.resources[res as keyof typeof player.resources] = Math.max(0, (player.resources[res as keyof typeof player.resources] || 0) - (val || 0));
-        });
-      }
-      if (option.reward) {
-        Object.entries(option.reward).forEach(([res, val]) => {
-          player.resources[res as keyof typeof player.resources] = (player.resources[res as keyof typeof player.resources] || 0) + (val || 0);
-        });
-      }
-      if (option.stabilityDelta) {
-        Object.values(gameState.provinces)
-          .filter(p => p.countryId === gameState.playerCountryId)
-          .forEach(p => {
-            p.stability = Math.max(10, Math.min(100, p.stability + option.stabilityDelta!));
-          });
-      }
-      sound.playSelect();
-    }
-
-    // Dismiss this resolved event from the queue
-    gameState.activeEvents.splice(eventIndex, 1);
-    if (gameState.activeEvents.length === 0) {
+    const result = gameStore.resolveEventOption(activeEvent.id, optionIndex);
+    if (!result.success) return;
+    const remaining = gameStore.getState().activeEvents.length;
+    if (remaining === 0) {
       setIsEventModalOpen(false);
+      setActiveEventIndex(0);
     } else {
-      setActiveEventIndex(prev => Math.min(prev, gameState.activeEvents.length - 1));
+      setActiveEventIndex(prev => Math.min(prev, remaining - 1));
     }
-    setGameState({ ...gameState });
   };
 
   // If in Title Screen, display full Title Game Shell
@@ -241,6 +223,7 @@ export default function App() {
         {/* Central Viewport (3D Orbital Globe or 2D Theatre Command) */}
         <main className="flex-1 h-full relative overflow-hidden bg-slate-950">
           {viewMode === '3D' ? (
+            <Suspense fallback={<div className="w-full h-full flex items-center justify-center text-cyan-400 font-mono text-xs animate-pulse">LOADING ORBITAL GLOBE…</div>}>
             <Globe3D
               provinces={gameState.provinces}
               countries={gameState.countries}
@@ -251,6 +234,7 @@ export default function App() {
               recentBattles={gameState.recentBattles}
               currentTurn={gameState.currentTurn}
             />
+            </Suspense>
           ) : (
             <Tactical2DMap
               provinces={gameState.provinces}
@@ -266,6 +250,7 @@ export default function App() {
           {/* Right Selected Province Dossier & Action Panel */}
           {selectedProvince && (
             <SelectedProvincePanel
+              key={selectedProvince.id}
               province={selectedProvince}
               countries={gameState.countries}
               provinces={gameState.provinces}
@@ -459,6 +444,22 @@ export default function App() {
           currentState={gameState}
           onLoadState={(loaded) => gameStore.loadSavedState(loaded)}
           onClose={() => setIsSaveModalOpen(false)}
+          lang={lang}
+        />
+      )}
+
+      {/* Campaign end: victory or defeat */}
+      {gameState.gameOver && !gameState.gameOver.acknowledged && (
+        <GameOverModal
+          gameOver={gameState.gameOver}
+          currentDate={gameState.currentDate}
+          onContinue={() => gameStore.continueAfterVictory()}
+          onNewCampaign={() => {
+            gameStore.createNewGame(gameState.activeDifficulty, gameState.playerCountryId);
+            setSelectedProvinceId(null);
+            setInspectedBattle(null);
+            setIsInTitleScreen(true);
+          }}
           lang={lang}
         />
       )}

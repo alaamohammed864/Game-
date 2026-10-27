@@ -71,6 +71,23 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({
     URL.revokeObjectURL(url);
   };
 
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const res = storage.importSaveJson(await file.text());
+      if (res.success && res.state) {
+        onLoadState(res.state);
+        onClose();
+      } else {
+        setStatusMsg(res.error || (lang === 'ar' ? 'بنية ملف الحفظ غير صالحة أو تالفة.' : 'Invalid save JSON file structure.'));
+      }
+    } catch {
+      setStatusMsg(lang === 'ar' ? 'تعذّرت قراءة الملف.' : 'Could not read the selected file.');
+    }
+  };
+
   const handleImportJson = () => {
     if (!importJsonText.trim()) return;
     const res = storage.importSaveJson(importJsonText);
@@ -204,6 +221,11 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({
                 <Download className="w-3.5 h-3.5 text-cyan-400" />
                 <span>Export Save File (JSON)</span>
               </button>
+              <label className="px-3 py-1.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 flex items-center gap-1.5 text-xs font-mono cursor-pointer">
+                <Upload className="w-3.5 h-3.5 text-emerald-400" />
+                <span>{lang === 'ar' ? 'استيراد ملف' : 'Import File'}</span>
+                <input type="file" accept=".json,application/json" className="hidden" onChange={handleImportFile} />
+              </label>
               <button
                 onClick={() => setShowImportArea(!showImportArea)}
                 className="px-3 py-1.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 flex items-center gap-1.5 text-xs font-mono"

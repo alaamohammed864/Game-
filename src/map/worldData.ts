@@ -1289,5 +1289,15 @@ export function generateInitialWorld(difficulty: AIDifficulty = 'NORMAL'): World
     countries[cId].ballisticMissiles = 3;
   });
 
+  // Guarantee symmetric adjacency (a border must be crossable in both directions).
+  Object.values(provinces).forEach(prov => {
+    prov.neighborIds.forEach(nId => {
+      const other = provinces[nId];
+      if (other && nId !== prov.id && !other.neighborIds.includes(prov.id)) {
+        other.neighborIds.push(prov.id);
+      }
+    });
+  });
+
   return { countries, provinces };
 }

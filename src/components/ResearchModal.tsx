@@ -135,8 +135,10 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({
                   <span className="text-[11px] text-cyan-300 font-bold">{tech.cost} Tech Points</span>
                   {isAvailable && (
                     <button
+                      disabled={Boolean(player.currentResearch)}
+                      title={player.currentResearch ? 'Finish the current project first' : undefined}
                       onClick={() => onStartResearch(tech.id)}
-                      className="px-3 py-1 rounded bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs"
+                      className="px-3 py-1 rounded bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold text-xs"
                     >
                       Commission R&D
                     </button>

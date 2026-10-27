@@ -63,6 +63,12 @@ export const EventModal: React.FC<EventModalProps> = ({
   };
 
   const style = getSeverityStyle(event.severity);
+  const player = state.countries[state.playerCountryId];
+  const freeResources = state.isDevMode && state.unlimitedResourcesDev;
+  const canAffordOption = (cost?: Partial<Record<string, number>>) => {
+    if (!cost || freeResources || !player) return true;
+    return Object.entries(cost).every(([k, v]) => (player.resources[k as keyof typeof player.resources] || 0) >= (v || 0));
+  };
   const totalEvents = events.length;
 
   return (
@@ -141,11 +147,19 @@ export const EventModal: React.FC<EventModalProps> = ({
 
             {/* Strategic Decision Choices */}
             <div className="space-y-2.5">
-              {event.options.map((opt, idx) => (
+              {event.options.map((opt, idx) => {
+                const affordable = canAffordOption(opt.cost);
+                return (
                 <button
                   key={idx}
+                  disabled={!affordable}
+                  title={affordable ? undefined : (lang === 'ar' ? 'الموارد غير كافية' : 'Insufficient resources')}
                   onClick={() => onResolveOption(idx, activeEventIndex)}
-                  className="w-full p-3 sm:p-3.5 rounded-lg bg-slate-900 hover:bg-slate-850 border border-slate-700/80 hover:border-cyan-400 text-left rtl:text-right transition-all flex flex-col gap-1.5 group cursor-pointer active:scale-[0.99]"
+                  className={`w-full p-3 sm:p-3.5 rounded-lg bg-slate-900 border text-left rtl:text-right transition-all flex flex-col gap-1.5 group ${
+                    affordable
+                      ? 'hover:bg-slate-850 border-slate-700/80 hover:border-cyan-400 cursor-pointer active:scale-[0.99]'
+                      : 'border-red-900/60 opacity-50 cursor-not-allowed'
+                  }`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-bold text-white text-xs sm:text-sm group-hover:text-cyan-300 flex items-center gap-1.5">
@@ -184,7 +198,8 @@ export const EventModal: React.FC<EventModalProps> = ({
                     </div>
                   )}
                 </button>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

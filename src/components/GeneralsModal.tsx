@@ -38,6 +38,7 @@ export const GeneralsModal: React.FC<GeneralsModalProps> = ({
   const [selectedTargetProvinceId, setSelectedTargetProvinceId] = useState<string>(
     Object.keys(provinces).find(id => provinces[id].countryId !== player.id) || ''
   );
+  const [promoteMsg, setPromoteMsg] = useState<string>('');
   const [missileLog, setMissileLog] = useState<{ text: string; success: boolean } | null>(null);
 
   const ownedProvinces = Object.values(provinces).filter(p => p.countryId === player.id);
@@ -138,6 +139,12 @@ export const GeneralsModal: React.FC<GeneralsModalProps> = ({
             </div>
           </div>
 
+          {promoteMsg && (
+            <div className="p-2 rounded border border-yellow-700/60 bg-yellow-950/30 text-yellow-200 text-xs">
+              {promoteMsg} · {lang === 'ar' ? 'الذهب' : 'Gold'}: {player.resources.gold}
+            </div>
+          )}
+
           {/* Sovereign Generals List */}
           <div className="space-y-3">
             <span className="text-[11px] text-slate-300 font-bold uppercase tracking-wider block">
@@ -188,6 +195,20 @@ export const GeneralsModal: React.FC<GeneralsModalProps> = ({
                         </div>
                       </div>
                     </div>
+
+                    {/* Promotion (20 gold) */}
+                    <button
+                      onClick={() => {
+                        const ok = onPromoteGeneral(general.id);
+                        setPromoteMsg(ok
+                          ? (lang === 'ar' ? `تمت ترقية ${general.name}` : `${general.name} promoted`)
+                          : (lang === 'ar' ? 'الذهب غير كافٍ (20)' : 'Not enough gold (20 required)'));
+                      }}
+                      className="w-full py-1.5 rounded bg-yellow-600/20 hover:bg-yellow-600/30 border border-yellow-600/50 text-yellow-300 font-bold text-[11px] flex items-center justify-center gap-1.5"
+                    >
+                      <ArrowUpCircle className="w-3.5 h-3.5" />
+                      {lang === 'ar' ? 'ترقية (20 ذهب)' : 'Promote (20 gold)'}
+                    </button>
 
                     {/* Assignment Selector */}
                     <div className="pt-2 border-t border-slate-800 flex flex-col gap-1.5">

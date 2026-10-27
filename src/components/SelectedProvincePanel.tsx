@@ -56,14 +56,22 @@ export const SelectedProvincePanel: React.FC<SelectedProvincePanelProps> = ({
   const isMobile = effectiveCategory === 'mobile';
   const isTablet = effectiveCategory === 'tablet';
 
-  if (!province) return null;
-
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'BUILD' | 'RECRUIT' | 'ATTACK'>('OVERVIEW');
   const [selectedAttackSourceId, setSelectedAttackSourceId] = useState<string>('');
   const [selectedAttackUnitIds, setSelectedAttackUnitIds] = useState<string[]>([]);
   const [recruitCount, setRecruitCount] = useState<number>(1);
+  const [actionMsg, setActionMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
+  if (!province) return null;
 
   const country = countries[province.countryId];
+  const playerStock = countries[playerCountryId]?.resources;
+  const lacks = (res: string, amount: number) =>
+    Boolean(playerStock) && (playerStock![res as keyof typeof playerStock] ?? 0) < amount;
+
+  const runAction = (ok: boolean, okText: string, failText: string) => {
+    setActionMsg({ ok, text: ok ? okText : failText });
+  };
   const isPlayerOwned = province.countryId === playerCountryId;
 
   // Neighboring friendly provinces that can launch an attack on this province
@@ -95,8 +103,8 @@ export const SelectedProvincePanel: React.FC<SelectedProvincePanelProps> = ({
       isMobile 
         ? 'inset-x-0 bottom-16 rounded-t-2xl max-h-[64vh] text-xs' 
         : isTablet
-        ? 'top-14 right-3 w-80 max-h-[82vh] rounded-lg text-xs'
-        : 'top-14 right-4 w-96 max-h-[85vh] rounded-lg text-xs'
+        ? 'top-14 ltr:right-3 rtl:left-3 w-80 max-h-[82vh] rounded-lg text-xs'
+        : 'top-14 ltr:right-4 rtl:left-4 w-96 max-h-[85vh] rounded-lg text-xs'
     }`}>
       {/* Mobile drag handle for drawer menu */}
       {isMobile && (
@@ -143,7 +151,7 @@ export const SelectedProvincePanel: React.FC<SelectedProvincePanelProps> = ({
         {isPlayerOwned && (
           <>
             <button
-              onClick={() => setActiveTab('BUILD')}
+              onClick={() => { setActiveTab('BUILD'); setActionMsg(null); }}
               className={`flex-1 py-2 text-center border-b-2 font-medium ${
                 activeTab === 'BUILD'
                   ? 'border-amber-400 text-amber-300 bg-slate-900'
@@ -153,7 +161,7 @@ export const SelectedProvincePanel: React.FC<SelectedProvincePanelProps> = ({
               Build
             </button>
             <button
-              onClick={() => setActiveTab('RECRUIT')}
+              onClick={() => { setActiveTab('RECRUIT'); setActionMsg(null); }}
               className={`flex-1 py-2 text-center border-b-2 font-medium ${
                 activeTab === 'RECRUIT'
                   ? 'border-emerald-400 text-emerald-300 bg-slate-900'
@@ -185,6 +193,11 @@ export const SelectedProvincePanel: React.FC<SelectedProvincePanelProps> = ({
 
       {/* Tab Body */}
       <div className="p-3 overflow-y-auto max-h-[60vh] space-y-3 font-mono text-xs">
+        {actionMsg && (activeTab === 'BUILD' || activeTab === 'RECRUIT') && (
+          <div className={`p-2 rounded border text-[11px] ${actionMsg.ok ? 'bg-emerald-950/50 border-emerald-700 text-emerald-200' : 'bg-red-950/50 border-red-700 text-red-200'}`}>
+            {actionMsg.text}
+          </div>
+        )}
         {/* TAB 1: OVERVIEW */}
         {activeTab === 'OVERVIEW' && (
           <>
@@ -292,7 +305,12 @@ export const SelectedProvincePanel: React.FC<SelectedProvincePanelProps> = ({
                     </div>
                     <button
                       disabled={isMaxed}
-                      onClick={() => onQueueBuilding(province.id, bType)}
+                      onClick={() => {
+                        const ok = onQueueBuilding(province.id, bType);
+                        runAction(ok,
+                          lang === 'ar' ? 'بدأ البناء.' : 'Construction started.',
+                          lang === 'ar' ? 'تعذّر البناء: الموارد غير كافية أو يوجد مشروع قيد التنفيذ.' : 'Cannot build: not enough resources, or a project of this type is already underway.');
+                      }}
                       className={`px-3 py-1 rounded font-bold text-xs ${
                         isMaxed 
                           ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
@@ -305,7 +323,7 @@ export const SelectedProvincePanel: React.FC<SelectedProvincePanelProps> = ({
                   <p className="text-[10px] text-slate-400">{bDef.description}</p>
                   <div className="flex flex-wrap gap-2 text-[10px] text-amber-300/80">
                     {Object.entries(bDef.baseCost).map(([res, cost]) => (
-                      <span key={res}>{res}: {cost}</span>
+                      <span key={res} className={lacks(res, cost || 0) ? 'text-red-400 font-bold' : ''}>{res}: {cost}</span>
                     ))}
                   </div>
                 </div>
@@ -351,7 +369,12 @@ export const SelectedProvincePanel: React.FC<SelectedProvincePanelProps> = ({
                     </div>
                     <button
                       disabled={disabled}
-                      onClick={() => onQueueMilitary(province.id, uType, recruitCount)}
+                      onClick={() => {
+                        const ok = onQueueMilitary(province.id, uType, recruitCount);
+                        runAction(ok,
+                          lang === 'ar' ? 'بدأ التجنيد.' : 'Mobilization ordered.',
+                          lang === 'ar' ? 'تعذّر التجنيد: الموارد غير كافية.' : 'Cannot mobilize: not enough resources.');
+                      }}
                       className={`px-3 py-1 rounded font-bold text-xs ${
                         disabled
                           ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
@@ -364,7 +387,7 @@ export const SelectedProvincePanel: React.FC<SelectedProvincePanelProps> = ({
                   <p className="text-[10px] text-slate-400">{uDef.description}</p>
                   <div className="flex flex-wrap gap-2 text-[10px] text-emerald-300/80">
                     {Object.entries(uDef.cost).map(([res, cost]) => (
-                      <span key={res}>{res}: {(cost || 0) * recruitCount}</span>
+                      <span key={res} className={lacks(res, (cost || 0) * recruitCount) ? 'text-red-400 font-bold' : ''}>{res}: {(cost || 0) * recruitCount}</span>
                     ))}
                   </div>
                 </div>

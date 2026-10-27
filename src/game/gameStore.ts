@@ -8,6 +8,7 @@ import {
   UnitGroup, 
   BattleReport, 
   DiplomaticStatus,
+  DiplomaticProposal,
   AIDifficulty
 } from '../types';
 import { generateInitialWorld } from '../map/worldData';
@@ -16,7 +17,8 @@ import {
   BUILDING_DEFINITIONS, 
   UNIT_DEFINITIONS, 
   TECH_TREE, 
-  INITIAL_MISSIONS 
+  INITIAL_MISSIONS,
+  AI_DIFFICULTY_MODIFIERS
 } from './config';
 import { calculateCountryEconomy, executeMarketTrade } from '../economy/economyEngine';
 import { processAITurn } from '../ai/aiEngine';
@@ -27,6 +29,7 @@ import { simulateCombatEngagement } from '../combat/combatEngine';
 import { storage } from '../storage/db';
 import { sound } from '../audio/soundSystem';
 import { ensureBilateralRelation, setBilateralDiplomaticStatus, validateWarDeclaration } from '../diplomacy/diplomacyUtils';
+import { mergeUnitGroups } from '../utils/unitGroups';
 
 type Listener = () => void;
 
@@ -102,20 +105,42 @@ class GameStore {
       activeEvents: [],
       missions: JSON.parse(JSON.stringify(INITIAL_MISSIONS)),
       intelReports: [],
-      tradeMarketPrices: { ...BASE_MARKET_PRICES }
+      tradeMarketPrices: { ...BASE_MARKET_PRICES },
+      gameOver: null
     };
 
     this.state = newState;
+    this.autosaveCounter = 0;
+    this.restartLoop(); // make sure the timer matches the new game's speed
     this.notify();
     return newState;
   }
 
   public loadSavedState(loadedState: GameState) {
-    // Deep validation & fallback defaults for dev flags
-    if (loadedState.unlimitedGoldDev === undefined) loadedState.unlimitedGoldDev = false;
-    if (loadedState.unlimitedResourcesDev === undefined) loadedState.unlimitedResourcesDev = false;
-    if (loadedState.instantBuildDev === undefined) loadedState.instantBuildDev = false;
-    if (loadedState.instantResearchDev === undefined) loadedState.instantResearchDev = false;
+    // Fill in anything an older save may lack so the rest of the engine can rely on it
+    loadedState.unlimitedGoldDev ??= false;
+    loadedState.unlimitedResourcesDev ??= false;
+    loadedState.instantBuildDev ??= false;
+    loadedState.instantResearchDev ??= false;
+    loadedState.isDevMode ??= false;
+    loadedState.fogOfWarRevealed ??= false;
+    loadedState.gameOver ??= null;
+    loadedState.notifications ??= [];
+    loadedState.recentBattles ??= [];
+    loadedState.activeEvents ??= [];
+    loadedState.intelReports ??= [];
+    loadedState.constructionQueue ??= [];
+    loadedState.militaryQueue ??= [];
+    loadedState.missions ??= JSON.parse(JSON.stringify(INITIAL_MISSIONS));
+    loadedState.tradeMarketPrices = { ...BASE_MARKET_PRICES, ...(loadedState.tradeMarketPrices || {}) };
+    if (![1, 2, 5].includes(loadedState.gameSpeed)) loadedState.gameSpeed = 1;
+    if (!loadedState.activeDifficulty) loadedState.activeDifficulty = 'NORMAL';
+
+    Object.values(loadedState.countries).forEach(c => {
+      c.completedTechs ??= [];
+      c.currentResearch ??= null;
+      c.ballisticMissiles ??= 0;
+    });
 
     // Harmonize bilateral diplomacy
     const countryList = Object.values(loadedState.countries);
@@ -125,7 +150,10 @@ class GameStore {
       }
     }
 
+    loadedState.isPaused = true; // never resume mid-turn straight after loading
     this.state = loadedState;
+    this.autosaveCounter = 0;
+    this.restartLoop();
     this.notify();
   }
 
@@ -246,6 +274,7 @@ class GameStore {
 
   private advanceTurnInternal() {
     const s = this.state;
+    if (s.gameOver && !s.gameOver.acknowledged) return; // campaign has ended
     s.currentTurn += 1;
 
     // Date formatting: each turn is ~1 month
@@ -260,6 +289,12 @@ class GameStore {
       if (!country.isAlive) return;
 
       const { balance, shortages } = calculateCountryEconomy(country, s.provinces, s.countries);
+
+      // Difficulty: AI nations earn more (or less) money than their raw economy yields
+      if (!country.isPlayer && balance.money.net > 0) {
+        const competence = AI_DIFFICULTY_MODIFIERS[country.aiProfile.difficulty]?.economicCompetence ?? 1;
+        balance.money.net = Math.round(balance.money.net * competence);
+      }
 
       // Apply resource updates
       const keys: ResourceKey[] = ['money', 'oil', 'steel', 'food', 'energy', 'rareMaterials', 'techPoints', 'manpower'];
@@ -313,7 +348,9 @@ class GameStore {
       item.turnsRemaining -= 1;
       if (item.turnsRemaining <= 0) {
         const prov = s.provinces[item.provinceId];
-        if (prov) {
+        if (prov && item.ownerCountryId && prov.countryId !== item.ownerCountryId) {
+          // Province was conquered while under construction: the project is lost
+        } else if (prov) {
           const existing = prov.buildings.find(b => b.type === item.type);
           if (existing) {
             existing.level = item.targetLevel;
@@ -370,7 +407,9 @@ class GameStore {
       item.turnsRemaining -= 1;
       if (item.turnsRemaining <= 0) {
         const prov = s.provinces[item.provinceId];
-        if (prov) {
+        if (prov && item.ownerCountryId && prov.countryId !== item.ownerCountryId) {
+          // Province was conquered while units were in production: the order is lost
+        } else if (prov) {
           const existing = prov.units.find(u => u.type === item.unitType);
           if (existing) {
             existing.count += item.count;
@@ -461,13 +500,26 @@ class GameStore {
     // 13. Dynamic Market Fluctuations
     const keys: ResourceKey[] = ['oil', 'steel', 'food', 'energy', 'rareMaterials'];
     keys.forEach(k => {
-      const delta = (Math.random() - 0.5) * 2;
-      s.tradeMarketPrices[k] = Math.max(5, Math.round((s.tradeMarketPrices[k] + delta) * 10) / 10);
+      const base = BASE_MARKET_PRICES[k];
+      const noise = (Math.random() - 0.5) * 2;
+      const pull = (base - s.tradeMarketPrices[k]) * 0.08; // drift back toward the base price
+      const next = s.tradeMarketPrices[k] + noise + pull;
+      s.tradeMarketPrices[k] = Math.round(Math.min(base * 2.5, Math.max(base * 0.4, next)) * 10) / 10;
     });
+
+    // Strategic reserves: one new ballistic missile every 10 turns (cap 6)
+    if (s.currentTurn % 10 === 0) {
+      Object.values(s.countries).forEach(c => {
+        if (c.isAlive) c.ballisticMissiles = Math.min(6, (c.ballisticMissiles || 0) + 1);
+      });
+    }
 
     // Trim old notifications & battles
     if (s.notifications.length > 35) s.notifications = s.notifications.slice(0, 35);
     if (s.recentBattles.length > 20) s.recentBattles = s.recentBattles.slice(0, 20);
+
+    // Eliminations, victory and defeat
+    this.evaluateWorldState();
 
     // Autosave check
     this.autosaveCounter += 1;
@@ -550,6 +602,9 @@ class GameStore {
     const currentLevel = existing ? existing.level : 0;
     if (currentLevel >= bDef.maxLevel) return false;
 
+    // One project per building type per province at a time (otherwise you pay twice for the same level)
+    if (s.constructionQueue.some(q => q.provinceId === provinceId && q.type === type)) return false;
+
     // Validate resource costs
     if (!this.canAfford(s.playerCountryId, bDef.baseCost)) {
       return false;
@@ -569,7 +624,8 @@ class GameStore {
         type,
         targetLevel: currentLevel + 1,
         turnsRemaining: bDef.baseBuildTurns,
-        totalTurns: bDef.baseBuildTurns
+        totalTurns: bDef.baseBuildTurns,
+        ownerCountryId: s.playerCountryId
       });
       sound.playClick();
     }
@@ -582,7 +638,8 @@ class GameStore {
     const s = this.state;
     const prov = s.provinces[provinceId];
     const player = s.countries[s.playerCountryId];
-    if (!prov || !player || prov.countryId !== s.playerCountryId || count <= 0) return false;
+    if (!prov || !player || prov.countryId !== s.playerCountryId) return false;
+    if (!Number.isInteger(count) || count <= 0) return false;
 
     const uDef = UNIT_DEFINITIONS[unitType];
     if (!uDef) return false;
@@ -612,7 +669,7 @@ class GameStore {
       if (existing) existing.count += count;
       else {
         prov.units.push({
-          id: `u_${Date.now()}`,
+          id: `u_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
           type: unitType,
           count,
           experience: 40,
@@ -629,7 +686,8 @@ class GameStore {
         unitType,
         count,
         turnsRemaining: uDef.productionTurns,
-        totalTurns: uDef.productionTurns
+        totalTurns: uDef.productionTurns,
+        ownerCountryId: s.playerCountryId
       });
       sound.playClick();
     }
@@ -650,6 +708,8 @@ class GameStore {
 
     const defenderCountry = s.countries[targetProv.countryId];
     if (!defenderCountry) return null;
+    if (defenderCountry.id === s.playerCountryId) return null; // cannot attack your own territory
+    if (!defenderCountry.isAlive) return null;
 
     // Filter attacking units
     const attackingUnits: UnitGroup[] = [];
@@ -668,7 +728,8 @@ class GameStore {
     // Remove from source province
     fromProv.units = remainingUnits;
 
-    // Harmonize bilateral diplomatic state to WAR safely
+    // Striking a treaty partner is a betrayal; then harmonize bilateral state to WAR safely
+    this.registerTreatyBetrayal(player, defenderCountry);
     setBilateralDiplomaticStatus(player, defenderCountry, 'WAR', -50, s.currentTurn);
 
     // Execute battle
@@ -682,10 +743,11 @@ class GameStore {
     });
 
     if (battle.victor === 'DEFENDER' && battle.survivingAttackerUnits) {
-      fromProv.units.push(...battle.survivingAttackerUnits);
+      fromProv.units = mergeUnitGroups([...fromProv.units, ...battle.survivingAttackerUnits]);
     }
 
     s.recentBattles.unshift(battle);
+    this.evaluateWorldState();
     if (battle.victor === 'ATTACKER') {
       sound.playVictory();
     } else {
@@ -701,6 +763,8 @@ class GameStore {
     const player = s.countries[s.playerCountryId];
     const targetProv = s.provinces[targetProvinceId];
     if (!player || !targetProv) return false;
+    if (targetProv.countryId === s.playerCountryId) return false; // recon is for foreign territory
+    if (!s.countries[targetProv.countryId]) return false;
 
     const cost = 250;
     if (!this.executeTransaction(s.playerCountryId, { money: cost })) {
@@ -712,7 +776,7 @@ class GameStore {
       .some(p => p.buildings.some(b => b.type === 'intelligence_center'));
 
     const targetCountry = s.countries[targetProv.countryId];
-    const report = generateProvinceIntel(targetCountry, targetProv, s.currentTurn, hasIntelHQ);
+    const report = generateProvinceIntel(targetCountry, targetProv, s.currentTurn, hasIntelHQ, s.playerCountryId);
 
     s.intelReports = s.intelReports.filter(r => r.targetProvinceId !== targetProvinceId);
     s.intelReports.unshift(report);
@@ -722,7 +786,25 @@ class GameStore {
     return true;
   }
 
-  public sendDiplomaticProposal(targetCountryId: string, proposal: any): { accepted: boolean; message: string } {
+  /** Breaking a treaty by force is remembered by the victim and costs trust. */
+  private registerTreatyBetrayal(aggressor: Country, victim: Country) {
+    const rels = ensureBilateralRelation(aggressor, victim);
+    if (!rels) return;
+    const status = rels.relAtoB.status;
+    if (status === 'ALLIANCE' || status === 'DEFENSIVE_PACT' || status === 'NON_AGGRESSION') {
+      rels.relBtoA.memory.betrayals += 1;
+      rels.relBtoA.trustScore = Math.max(-100, rels.relBtoA.trustScore - 30);
+      this.state.notifications.unshift({
+        id: `betrayal_${this.state.currentTurn}_${aggressor.id}_${victim.id}_${Date.now()}`,
+        turn: this.state.currentTurn,
+        type: 'DIPLOMACY',
+        title: 'Treaty Betrayed',
+        message: `${aggressor.name} broke its ${status.replace('_', ' ').toLowerCase()} with ${victim.name} by force of arms.`
+      });
+    }
+  }
+
+  public sendDiplomaticProposal(targetCountryId: string, proposal: DiplomaticProposal): { accepted: boolean; message: string } {
     const s = this.state;
     const player = s.countries[s.playerCountryId];
     const target = s.countries[targetCountryId];
@@ -731,13 +813,32 @@ class GameStore {
     const result = evaluateDiplomaticProposal(player, target, proposal);
     if (result.accepted) {
       sound.playSelect();
-      if (proposal === 'ALLIANCE' || proposal === 'DEFENSIVE_PACT' || proposal === 'NON_AGGRESSION' || proposal === 'PEACE') {
-        setBilateralDiplomaticStatus(player, target, proposal, 20, s.currentTurn);
-      } else if (proposal === 'TRADE_DEAL') {
-        const rels = ensureBilateralRelation(player, target);
-        if (rels) {
-          rels.relAtoB.tradeAgreementActive = true;
-          rels.relBtoA.tradeAgreementActive = true;
+      switch (proposal) {
+        case 'ALLIANCE':
+        case 'DEFENSIVE_PACT':
+        case 'NON_AGGRESSION':
+          setBilateralDiplomaticStatus(player, target, proposal, 20, s.currentTurn);
+          break;
+        case 'PEACE':
+        case 'PEACE_TREATY':
+          setBilateralDiplomaticStatus(player, target, 'PEACE', 15, s.currentTurn);
+          break;
+        case 'TRADE_DEAL':
+        case 'TRADE_AGREEMENT': {
+          const rels = ensureBilateralRelation(player, target);
+          if (rels) {
+            rels.relAtoB.tradeAgreementActive = true;
+            rels.relBtoA.tradeAgreementActive = true;
+          }
+          break;
+        }
+        case 'MILITARY_ACCESS': {
+          const rels = ensureBilateralRelation(player, target);
+          if (rels) {
+            rels.relAtoB.militaryAccess = true;
+            rels.relBtoA.militaryAccess = true;
+          }
+          break;
         }
       }
     } else {
@@ -757,6 +858,7 @@ class GameStore {
     const warVal = validateWarDeclaration(player, target);
     if (!warVal.valid) return;
 
+    this.registerTreatyBetrayal(player, target);
     setBilateralDiplomaticStatus(player, target, 'WAR', -80, s.currentTurn);
 
     sound.playCombatExplosion();
@@ -792,6 +894,10 @@ class GameStore {
       return true;
     }
 
+    // Switching projects would silently throw away the progress made so far
+    if (player.currentResearch && player.currentResearch.techId !== techId) return false;
+    if (player.currentResearch?.techId === techId) return false;
+
     player.currentResearch = { techId, progress: 0 };
     sound.playSelect();
     this.notify();
@@ -809,6 +915,98 @@ class GameStore {
       this.notify();
     }
     return res;
+  }
+
+  // ============================================
+  // EVENTS (resolved here so costs are validated)
+  // ============================================
+  public resolveEventOption(eventId: string, optionIndex: number): { success: boolean; message: string } {
+    const s = this.state;
+    const player = s.countries[s.playerCountryId];
+    const eventIdx = s.activeEvents.findIndex(e => e.id === eventId);
+    if (!player || eventIdx < 0) return { success: false, message: 'This directive is no longer active.' };
+
+    const option = s.activeEvents[eventIdx].options[optionIndex];
+    if (!option) return { success: false, message: 'Invalid directive option.' };
+
+    if (option.cost && !this.canAfford(s.playerCountryId, option.cost)) {
+      return { success: false, message: 'Insufficient resources for this directive.' };
+    }
+    if (option.cost) this.executeTransaction(s.playerCountryId, option.cost);
+
+    if (option.reward) {
+      Object.entries(option.reward).forEach(([res, val]) => {
+        player.resources[res as ResourceKey] = (player.resources[res as ResourceKey] || 0) + (val || 0);
+      });
+    }
+    if (option.stabilityDelta) {
+      Object.values(s.provinces)
+        .filter(p => p.countryId === s.playerCountryId)
+        .forEach(p => {
+          p.stability = Math.max(10, Math.min(100, p.stability + option.stabilityDelta!));
+        });
+    }
+
+    s.activeEvents.splice(eventIdx, 1);
+    sound.playSelect();
+    this.notify();
+    return { success: true, message: 'Directive executed.' };
+  }
+
+  // ============================================
+  // WORLD STATE: ELIMINATION, VICTORY & DEFEAT
+  // ============================================
+  private evaluateWorldState() {
+    const s = this.state;
+    const counts: Record<string, number> = {};
+    Object.values(s.provinces).forEach(p => {
+      counts[p.countryId] = (counts[p.countryId] || 0) + 1;
+    });
+    const totalProvinces = Object.keys(s.provinces).length;
+
+    Object.values(s.countries).forEach(c => {
+      if (c.isAlive && !(counts[c.id] > 0)) {
+        c.isAlive = false;
+        s.notifications.unshift({
+          id: `eliminated_${c.id}_${s.currentTurn}`,
+          turn: s.currentTurn,
+          type: 'DIPLOMACY',
+          title: 'Nation Eliminated',
+          message: `${c.name} has lost its last province and ceased to exist as a sovereign state.`
+        });
+      }
+    });
+
+    if (s.gameOver) return;
+
+    const playerProvinces = counts[s.playerCountryId] || 0;
+    const rivalsAlive = Object.values(s.countries).filter(c => c.id !== s.playerCountryId && c.isAlive).length;
+    let outcome: { status: 'VICTORY' | 'DEFEAT'; reason: string } | null = null;
+
+    if (playerProvinces === 0) {
+      outcome = { status: 'DEFEAT', reason: 'Your last province has fallen. The nation is no more.' };
+    } else if (rivalsAlive === 0) {
+      outcome = { status: 'VICTORY', reason: 'Total conquest: every rival nation has been eliminated.' };
+    } else if (playerProvinces / totalProvinces >= 0.6) {
+      outcome = { status: 'VICTORY', reason: 'World domination: you control over 60% of all provinces.' };
+    }
+
+    if (outcome) {
+      s.gameOver = { ...outcome, turn: s.currentTurn };
+      s.isPaused = true;
+      if (outcome.status === 'VICTORY') sound.playVictory();
+      else sound.playDefeat();
+    }
+  }
+
+  /** After a victory the player may keep playing; a defeat cannot be dismissed. */
+  public continueAfterVictory() {
+    const go = this.state.gameOver;
+    if (go && go.status === 'VICTORY') {
+      go.acknowledged = true;
+      this.state.isPaused = false;
+      this.notify();
+    }
   }
 
   // ============================================
@@ -947,6 +1145,9 @@ class GameStore {
     if (!player || !targetProv) {
       return { success: false, intercepted: false, damageDealt: 0, message: 'Invalid launch coordinates.' };
     }
+    if (targetProv.countryId === s.playerCountryId) {
+      return { success: false, intercepted: false, damageDealt: 0, message: 'Cannot strike your own territory.' };
+    }
 
     if ((player.ballisticMissiles || 0) <= 0 && (!s.isDevMode || !s.unlimitedResourcesDev)) {
       return { success: false, intercepted: false, damageDealt: 0, message: 'No armed ballistic missiles remaining in sovereign silos.' };
@@ -998,6 +1199,7 @@ class GameStore {
 
     const targetCountry = s.countries[targetProv.countryId];
     if (targetCountry) {
+      this.registerTreatyBetrayal(player, targetCountry);
       setBilateralDiplomaticStatus(player, targetCountry, 'WAR', -50, s.currentTurn);
     }
 

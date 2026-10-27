@@ -119,6 +119,9 @@ export function calculateCountryEconomy(
   return { balance, shortages };
 }
 
+/** Only physical commodities can be bought or sold; money, gold, tech and manpower cannot. */
+export const TRADABLE_RESOURCES: ResourceKey[] = ['oil', 'steel', 'food', 'energy', 'rareMaterials'];
+
 export function executeMarketTrade(
   country: Country,
   resource: ResourceKey,
@@ -126,7 +129,12 @@ export function executeMarketTrade(
   isBuying: boolean,
   marketPrices: Record<ResourceKey, number>
 ): { success: boolean; message: string } {
+  if (!Number.isFinite(amount) || amount <= 0) return { success: false, message: 'Invalid trade volume.' };
+  amount = Math.floor(amount);
   if (amount <= 0) return { success: false, message: 'Invalid trade volume.' };
+  if (!TRADABLE_RESOURCES.includes(resource)) {
+    return { success: false, message: `${resource} cannot be traded on the commodity exchange.` };
+  }
   const unitPrice = marketPrices[resource] || 10;
   const totalCost = Math.round(amount * unitPrice);
 

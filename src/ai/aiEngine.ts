@@ -12,6 +12,7 @@ import {
 import { BUILDING_DEFINITIONS, UNIT_DEFINITIONS, AI_DIFFICULTY_MODIFIERS, TECH_TREE } from '../game/config';
 import { simulateCombatEngagement } from '../combat/combatEngine';
 import { ensureBilateralRelation, setBilateralDiplomaticStatus, validateWarDeclaration } from '../diplomacy/diplomacyUtils';
+import { mergeUnitGroups } from '../utils/unitGroups';
 
 export interface AIExecutionResult {
   newBattles: BattleReport[];
@@ -168,7 +169,7 @@ export function processAITurn(
 
       const powerAdvantage = ourTotalAttack / Math.max(1, targetBorderUnits * 25 + 50);
 
-      if (aggressionScore > 0.45 && powerAdvantage >= 1.2 && rng() < (aggressionScore * 0.12)) {
+      if (aggressionScore > 0.45 && powerAdvantage >= 1.2 && rng() < (aggressionScore * 0.12 * diffConfig.reactionSpeed)) {
         setBilateralDiplomaticStatus(country, targetCountry, 'WAR', -50, turn);
         result.notifications.push({
           id: `war_decl_${turn}_${countryId}_${targetId}`,
@@ -215,6 +216,7 @@ export function processAITurn(
     const bDef = BUILDING_DEFINITIONS[neededBuilding];
     if (bDef) {
       const candidateProv = ownedProvinces.find(p => {
+        if (constructionQueue.some(q => q.provinceId === p.id && q.type === neededBuilding)) return false;
         const existing = p.buildings.find(b => b.type === neededBuilding);
         return !existing || existing.level < bDef.maxLevel;
       });
@@ -244,7 +246,8 @@ export function processAITurn(
             type: neededBuilding,
             targetLevel: nextLevel,
             turnsRemaining: bDef.baseBuildTurns,
-            totalTurns: bDef.baseBuildTurns
+            totalTurns: bDef.baseBuildTurns,
+            ownerCountryId: countryId
           });
         }
       }
@@ -299,7 +302,8 @@ export function processAITurn(
           unitType: unitToBuild,
           count: 1,
           turnsRemaining: uDef.productionTurns,
-          totalTurns: uDef.productionTurns
+          totalTurns: uDef.productionTurns,
+          ownerCountryId: countryId
         });
       }
     }
@@ -343,7 +347,7 @@ export function processAITurn(
         stagingProv.units.forEach(u => {
           const sendCount = Math.max(1, Math.ceil(u.count * 0.7));
           const keepCount = u.count - sendCount;
-          unitsToAttack.push({ ...u, count: sendCount });
+          unitsToAttack.push({ ...u, id: `${u.id}_t${turn}`, count: sendCount });
           if (keepCount > 0) {
             unitsRemaining.push({ ...u, count: keepCount });
           }
@@ -363,7 +367,7 @@ export function processAITurn(
           });
 
           if (battle.victor === 'DEFENDER' && battle.survivingAttackerUnits) {
-            stagingProv.units.push(...battle.survivingAttackerUnits);
+            stagingProv.units = mergeUnitGroups([...stagingProv.units, ...battle.survivingAttackerUnits]);
           }
 
           result.newBattles.push(battle);
@@ -386,7 +390,9 @@ export function processAITurn(
   // 5. RESEARCH PROGRESSION
   // ==========================================
   if (!country.currentResearch && country.resources.techPoints >= 100) {
-    const uncompletedTechs = TECH_TREE.filter(t => !country.completedTechs.includes(t.id));
+    const uncompletedTechs = TECH_TREE.filter(
+      t => !country.completedTechs.includes(t.id) && t.prerequisites.every(pr => country.completedTechs.includes(pr))
+    );
     if (uncompletedTechs.length > 0) {
       // Prioritize tech matching doctrine
       let chosenTech = uncompletedTechs[0];

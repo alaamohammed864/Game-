@@ -124,7 +124,11 @@ class StorageManager {
     this.isSaving = true;
 
     try {
-      const validation = this.validateGameState(state);
+      // Validate a deep copy: sanitizing must never alter the running game (autosave runs mid-play)
+      const snapshot: GameState = typeof structuredClone === 'function'
+        ? structuredClone(state)
+        : JSON.parse(JSON.stringify(state));
+      const validation = this.validateGameState(snapshot);
       if (!validation.valid || !validation.sanitized) {
         return { success: false, errorKey: 'invalid_state', message: validation.error || 'Failed integrity check.' };
       }

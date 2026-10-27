@@ -4,7 +4,8 @@ import {
   Province, 
   UnitGroup, 
   UnitType, 
-  TerrainType 
+  TerrainType,
+  UnitBranch
 } from '../types';
 import { UNIT_DEFINITIONS, TECH_TREE } from '../game/config';
 
@@ -16,6 +17,36 @@ export interface CombatEngagementInput {
   attackingUnits: UnitGroup[];
   sourceProvinceId?: string;
   hasAirSupport?: boolean;
+}
+
+
+type BranchMods = { atk: number; def: number };
+
+/** Sums unit-bonus techs per branch. A tech with no branch buffs LAND, AIR and NAVY alike. */
+export function computeTechModifiers(country: Country): Record<UnitBranch, BranchMods> {
+  const mods: Record<UnitBranch, BranchMods> = {
+    LAND: { atk: 1, def: 1 },
+    AIR: { atk: 1, def: 1 },
+    NAVY: { atk: 1, def: 1 }
+  };
+  country.completedTechs.forEach(tId => {
+    const ub = TECH_TREE.find(t => t.id === tId)?.bonuses.unitBonus;
+    if (!ub) return;
+    (['LAND', 'AIR', 'NAVY'] as UnitBranch[]).forEach(b => {
+      if (!ub.branch || ub.branch === b) {
+        mods[b].atk += ub.attackBonus || 0;
+        mods[b].def += ub.defenseBonus || 0;
+      }
+    });
+  });
+  return mods;
+}
+
+/** Applies a loss fraction to a group. Groups reduced to 0 are removed (no immortal single units). */
+function applyLosses(units: UnitGroup[], lossPct: number, patch: (u: UnitGroup) => Partial<UnitGroup>): UnitGroup[] {
+  return units
+    .map(u => ({ ...u, count: Math.round(u.count * (1 - lossPct)), ...patch(u) }))
+    .filter(u => u.count > 0);
 }
 
 export function simulateCombatEngagement(input: CombatEngagementInput): BattleReport {
@@ -31,40 +62,9 @@ export function simulateCombatEngagement(input: CombatEngagementInput): BattleRe
   const defendingUnits = targetProvince.units;
   const terrain = targetProvince.terrain;
 
-  // 1. Tech attack/defense multipliers
-  let attackerLandAtk = 1.0;
-  let attackerLandDef = 1.0;
-  let attackerAirAtk = 1.0;
-  let attackerNavyAtk = 1.0;
-
-  attackerCountry.completedTechs.forEach(tId => {
-    const tech = TECH_TREE.find(t => t.id === tId);
-    if (!tech?.bonuses.unitBonus) return;
-    const ub = tech.bonuses.unitBonus;
-    if (!ub.branch || ub.branch === 'LAND') {
-      attackerLandAtk += ub.attackBonus || 0;
-      attackerLandDef += ub.defenseBonus || 0;
-    }
-    if (ub.branch === 'AIR') attackerAirAtk += ub.attackBonus || 0;
-    if (ub.branch === 'NAVY') attackerNavyAtk += ub.attackBonus || 0;
-  });
-
-  let defenderLandAtk = 1.0;
-  let defenderLandDef = 1.0;
-  let defenderAirAtk = 1.0;
-  let defenderNavyAtk = 1.0;
-
-  defenderCountry.completedTechs.forEach(tId => {
-    const tech = TECH_TREE.find(t => t.id === tId);
-    if (!tech?.bonuses.unitBonus) return;
-    const ub = tech.bonuses.unitBonus;
-    if (!ub.branch || ub.branch === 'LAND') {
-      defenderLandAtk += ub.attackBonus || 0;
-      defenderLandDef += ub.defenseBonus || 0;
-    }
-    if (ub.branch === 'AIR') defenderAirAtk += ub.attackBonus || 0;
-    if (ub.branch === 'NAVY') defenderNavyAtk += ub.attackBonus || 0;
-  });
+  // 1. Tech attack/defense multipliers (per branch; techs without a branch apply to every branch)
+  const attackerMods = computeTechModifiers(attackerCountry);
+  const defenderMods = computeTechModifiers(defenderCountry);
 
   // 2. Sovereign General Command Buffs
   const attackerGeneral = input.sourceProvinceId && attackerCountry.generals
@@ -75,11 +75,11 @@ export function simulateCombatEngagement(input: CombatEngagementInput): BattleRe
     : null;
 
   if (attackerGeneral) {
-    attackerLandAtk += attackerGeneral.attackBonus;
-    attackerAirAtk += attackerGeneral.attackBonus;
+    attackerMods.LAND.atk += attackerGeneral.attackBonus;
+    attackerMods.AIR.atk += attackerGeneral.attackBonus;
   }
   if (defenderGeneral) {
-    defenderLandDef += defenderGeneral.defenseBonus;
+    defenderMods.LAND.def += defenderGeneral.defenseBonus;
   }
 
   // 3. Oil shortage penalties (if nation has 0 oil, mechanized and air lose 40% effectiveness)
@@ -131,7 +131,7 @@ export function simulateCombatEngagement(input: CombatEngagementInput): BattleRe
     const supplyFactor = 0.4 + (ug.supply / 100) * 0.6;
     const oilFactor = (attackerOilDeficit && (def.branch === 'AIR' || def.fuelConsumption > 5)) ? 0.6 : 1.0;
 
-    const basePower = def.attack * ug.count * terrainMod * expFactor * moraleFactor * supplyFactor * oilFactor * attackerLandAtk * airMultiplierAttacker;
+    const basePower = def.attack * ug.count * terrainMod * expFactor * moraleFactor * supplyFactor * oilFactor * attackerMods[def.branch].atk * airMultiplierAttacker;
     totalAttackerPower += basePower;
 
     if (def.branch === 'LAND') {
@@ -160,7 +160,7 @@ export function simulateCombatEngagement(input: CombatEngagementInput): BattleRe
     const supplyFactor = 0.4 + (ug.supply / 100) * 0.6;
     const oilFactor = (defenderOilDeficit && (def.branch === 'AIR' || def.fuelConsumption > 5)) ? 0.6 : 1.0;
 
-    const basePower = def.defense * ug.count * terrainMod * expFactor * moraleFactor * supplyFactor * oilFactor * defenderLandDef * fortificationBonus * airMultiplierDefender;
+    const basePower = def.defense * ug.count * terrainMod * expFactor * moraleFactor * supplyFactor * oilFactor * defenderMods[def.branch].def * fortificationBonus * airMultiplierDefender;
     totalDefenderPower += basePower;
 
     if (def.branch === 'LAND') {
@@ -212,45 +212,34 @@ export function simulateCombatEngagement(input: CombatEngagementInput): BattleRe
 
   let survivingAttackingUnits: UnitGroup[] = [];
 
-  // Apply losses to units in place
   if (attackerWon) {
-    // If defender wiped out or routing, defender units eliminated or retreated
-    if (defenderLossPct >= 0.8) {
-      targetProvince.units = [];
-    } else {
-      targetProvince.units.forEach(u => {
-        u.count = Math.max(1, Math.round(u.count * (1 - defenderLossPct)));
-        u.morale = Math.max(20, u.morale - 30);
-      });
-    }
-
-    // Attacker units occupy province (take remaining units into target province)
-    survivingAttackingUnits = attackingUnits.map(u => ({
-      ...u,
-      count: Math.max(1, Math.round(u.count * (1 - attackerLossPct))),
+    // Attacker units occupy the province; the defending garrison is destroyed or driven out.
+    survivingAttackingUnits = applyLosses(attackingUnits, attackerLossPct, u => ({
       experience: Math.min(100, u.experience + 15),
       morale: Math.min(100, u.morale + 10)
-    })).filter(u => u.count > 0);
+    }));
+    // Someone must hold the province: keep one regiment of the strongest group if all rounded to zero.
+    if (survivingAttackingUnits.length === 0 && attackingUnits.length > 0) {
+      const strongest = [...attackingUnits].sort((x, y) => y.count - x.count)[0];
+      survivingAttackingUnits = [{ ...strongest, count: 1, experience: Math.min(100, strongest.experience + 15), morale: Math.min(100, strongest.morale + 10) }];
+    }
 
     targetProvince.units = survivingAttackingUnits;
     targetProvince.countryId = attackerCountry.id;
     targetProvince.defenseLevel = Math.max(0, targetProvince.defenseLevel - 1); // damaged fortifications
     targetProvince.stability = Math.max(20, targetProvince.stability - 30); // post-combat unrest
   } else {
-    // Defender stood firm
-    targetProvince.units.forEach(u => {
-      u.count = Math.max(1, Math.round(u.count * (1 - defenderLossPct)));
-      u.experience = Math.min(100, u.experience + 10);
-      u.morale = Math.min(100, u.morale + 5);
-    });
+    // Defender stood firm; destroyed groups are removed from the garrison.
+    targetProvince.units = applyLosses(targetProvince.units, defenderLossPct, u => ({
+      experience: Math.min(100, u.experience + 10),
+      morale: Math.min(100, u.morale + 5)
+    }));
 
-    // Attacker repulsed: calculate surviving attacker units that retreat to source base
-    survivingAttackingUnits = attackingUnits.map(u => ({
-      ...u,
-      count: Math.max(1, Math.round(u.count * (1 - attackerLossPct))),
+    // Attacker repulsed: surviving units retreat to the source base.
+    survivingAttackingUnits = applyLosses(attackingUnits, attackerLossPct, u => ({
       experience: Math.min(100, u.experience + 5),
       morale: Math.max(15, u.morale - 25)
-    })).filter(u => u.count > 0);
+    }));
   }
 
   // Update country kill/loss stats

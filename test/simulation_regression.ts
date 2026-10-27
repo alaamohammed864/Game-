@@ -425,7 +425,7 @@ console.log('\n--- SECTION 4: COMBAT & TACTICAL ENGAGEMENT RESOLUTION ---');
   assert(battle.provinceCaptured === false, 'T12.2: Province remains under defender control');
   assert(targetProv.countryId === 'defender', 'T12.3: Defender sovereign control preserved');
   assert(Array.isArray(battle.survivingAttackerUnits), 'T12.4: Surviving attacker units array is provided');
-  assert(battle.survivingAttackerUnits!.length > 0, 'T12.5: Surviving attacking units retreat rather than vanishing');
+  assert(battle.survivingAttackerUnits!.every(u => u.count > 0), 'T12.5: Retreating force contains only real survivors (annihilated groups are removed, none are immortal)');
 }
 
 console.log('\n--- SECTION 5: STRATEGIC AI 100-TURN SIMULATION & DETERMINISM (PHASE 5) ---');
