@@ -145,8 +145,8 @@ export const TopBar: React.FC<TopBarProps> = ({
           <button
             onClick={onToggleViewMode}
             className="flex items-center gap-1 px-2 py-1 text-xs font-mono font-semibold rounded bg-cyan-950/50 text-cyan-300 border border-cyan-800/60 hover:bg-cyan-900/60 transition-colors"
-            title="Toggle 3D Orbital Globe / 2D Theatre Command"
-            aria-label="Toggle View Mode"
+            title={t('view_mode_toggle', lang)}
+            aria-label={t('view_mode_toggle', lang)}
           >
             <Globe className="w-3.5 h-3.5 text-cyan-400" />
             <span className="text-[11px]">{viewMode}</span>
@@ -217,7 +217,8 @@ export const TopBar: React.FC<TopBarProps> = ({
           <button
             onClick={onToggleMute}
             className="hidden md:flex p-1.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800"
-            title="Toggle Audio"
+            title={t('audio_toggle', lang)}
+            aria-label={t('audio_toggle', lang)}
           >
             {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
           </button>
@@ -236,7 +237,8 @@ export const TopBar: React.FC<TopBarProps> = ({
           <button
             onClick={onToggleLanguage}
             className="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 text-xs font-mono font-bold"
-            title="Switch Language (English / العربية)"
+            title={t('language_toggle', lang)}
+            aria-label={t('language_toggle', lang)}
           >
             {lang === 'en' ? 'عربي' : 'EN'}
           </button>
@@ -260,7 +262,8 @@ export const TopBar: React.FC<TopBarProps> = ({
             onClick={() => setIsMobileMenuOpen(prev => !prev)}
             className="md:hidden p-1.5 rounded bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800"
             title={t('quick_menu', lang)}
-            aria-label="Toggle Quick Menu"
+            aria-label={t('quick_menu', lang)}
+            aria-expanded={isMobileMenuOpen}
           >
             <MoreVertical className="w-4 h-4" />
           </button>
@@ -338,7 +341,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                   {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
                   <span>{t('audio', lang)}</span>
                 </span>
-                <span className="text-[10px] text-slate-400">{isMuted ? 'Muted' : 'Active'}</span>
+                <span className="text-[10px] text-slate-400">{isMuted ? t('audio_muted', lang) : t('audio_active', lang)}</span>
               </button>
 
               <button

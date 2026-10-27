@@ -64,6 +64,7 @@ export const SideNav: React.FC<SideNavProps> = ({
                   : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/60'
               }`}
               title={t(item.labelKey, lang)}
+              aria-current={isActive ? 'page' : undefined}
             >
               <span>{item.icon}</span>
               {!isCollapsed && (
@@ -86,7 +87,8 @@ export const SideNav: React.FC<SideNavProps> = ({
         <button
           onClick={onToggleCollapse}
           className="p-1.5 text-slate-400 hover:text-white rounded bg-slate-900 hover:bg-slate-800"
-          title={isCollapsed ? 'Expand Navigation' : 'Collapse Navigation'}
+          title={t(isCollapsed ? 'expand_navigation' : 'collapse_navigation', lang)}
+          aria-label={t(isCollapsed ? 'expand_navigation' : 'collapse_navigation', lang)}
         >
           {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
         </button>

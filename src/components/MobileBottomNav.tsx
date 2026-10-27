@@ -78,11 +78,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
               <span className="text-xs font-bold uppercase tracking-wider text-cyan-400">
-                {t('more_tabs', lang)} · Command Panels
+                {t('more_tabs', lang)} · {t('command_panels', lang)}
               </span>
               <button
                 onClick={() => setIsMoreMenuOpen(false)}
                 className="p-1 rounded bg-slate-900 text-slate-400 hover:text-white"
+                aria-label={t('close_menu', lang)}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -143,7 +144,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 
       {/* Fixed Bottom Tab Bar */}
       <nav 
-        aria-label="Mobile Navigation"
+        aria-label={t('mobile_navigation', lang)}
         className="fixed bottom-0 inset-x-0 h-16 bg-slate-950/95 border-t border-slate-800 backdrop-blur-md z-30 md:hidden flex items-center justify-around px-1 select-none font-mono"
       >
         {mainTabs.map(item => {
@@ -155,6 +156,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               className={`flex flex-col items-center justify-center flex-1 h-full py-1 min-w-[50px] transition-colors relative ${
                 isActive ? 'text-cyan-400 font-bold' : 'text-slate-400 hover:text-slate-200'
               }`}
+              aria-current={isActive ? 'page' : undefined}
             >
               <div className="relative">
                 {item.icon}
@@ -175,6 +177,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           className={`flex flex-col items-center justify-center flex-1 h-full py-1 min-w-[50px] transition-colors relative ${
             isMoreMenuOpen ? 'text-cyan-400 font-bold' : 'text-slate-400 hover:text-slate-200'
           }`}
+          aria-label={t(isMoreMenuOpen ? 'close_more_tabs' : 'open_more_tabs', lang)}
+          aria-expanded={isMoreMenuOpen}
         >
           <div className="relative">
             <MoreHorizontal className="w-5 h-5" />
