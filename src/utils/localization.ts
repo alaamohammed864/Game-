@@ -128,6 +128,13 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     victory_label: 'Victory',
     inspect_dossier: 'Inspect Dossier',
     versus: 'vs',
+    capital: 'CAPITAL', independent_territory: 'Independent Territory', build: 'Build', mobilize: 'Mobilize',
+    gdp: 'GDP', tier: 'Tier', fort: 'Fort', priority: 'Priority', installed_infrastructure: 'Installed Infrastructure',
+    no_upgraded_complexes: 'No upgraded industrial complexes', level: 'Level', max_level: 'MAX LEVEL',
+    upgrade_turns: 'Upgrade', regiment_quantity: 'Regiment Quantity:', port_required: 'Port Required', airbase_required: 'Airbase Required',
+    no_border_forces: 'No friendly provinces with stationed forces border this territory.',
+    launch_from_base: 'Launch Assault From Staging Base:', units: 'units', select_task_force: 'Select Task Force Units to Commit:',
+    committed: 'COMMITTED', standby: 'STANDBY', execute_assault: 'Execute Tactical Assault',
   },
   ar: {
     game_title: 'القيادة العالمية: عصر الاستراتيجية',
@@ -256,6 +263,13 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     victory_label: 'انتصار',
     inspect_dossier: 'عرض التقرير',
     versus: 'ضد',
+    capital: 'العاصمة', independent_territory: 'إقليم مستقل', build: 'البناء', mobilize: 'التعبئة',
+    gdp: 'الناتج المحلي', tier: 'المستوى', fort: 'تحصين', priority: 'الأولوية', installed_infrastructure: 'المنشآت القائمة',
+    no_upgraded_complexes: 'لا توجد منشآت صناعية مطورة', level: 'المستوى', max_level: 'الحد الأقصى',
+    upgrade_turns: 'ترقية', regiment_quantity: 'عدد الأفواج:', port_required: 'يتطلب ميناءً', airbase_required: 'يتطلب قاعدة جوية',
+    no_border_forces: 'لا توجد قوات صديقة متمركزة في أقاليم مجاورة لهذا الإقليم.',
+    launch_from_base: 'اختر إقليم الانطلاق للهجوم:', units: 'وحدات', select_task_force: 'اختر القوات المشاركة في الهجوم:',
+    committed: 'مشاركة', standby: 'احتياط', execute_assault: 'تنفيذ الهجوم التكتيكي',
   }
 };
 

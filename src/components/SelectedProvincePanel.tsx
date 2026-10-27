@@ -120,12 +120,12 @@ export const SelectedProvincePanel: React.FC<SelectedProvincePanelProps> = ({
             <span className="font-bold text-sm tracking-wide text-white">{province.name}</span>
             {province.hasCapital && (
               <span className="px-1.5 py-0.2 bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[9px] font-mono rounded">
-                CAPITAL
+                {t('capital', lang)}
               </span>
             )}
           </div>
           <span className="text-xs font-mono text-slate-400">
-            {country?.name || 'Independent Territory'} · {province.terrain}
+            {country?.name || t('independent_territory', lang)} · {province.terrain}
           </span>
         </div>
         <button
@@ -158,7 +158,7 @@ export const SelectedProvincePanel: React.FC<SelectedProvincePanelProps> = ({
                   : 'border-transparent text-slate-400 hover:text-white'
               }`}
             >
-              Build
+              {t('build', lang)}
             </button>
             <button
               onClick={() => { setActiveTab('RECRUIT'); setActionMsg(null); }}
@@ -168,7 +168,7 @@ export const SelectedProvincePanel: React.FC<SelectedProvincePanelProps> = ({
                   : 'border-transparent text-slate-400 hover:text-white'
               }`}
             >
-              Mobilize
+              {t('mobilize', lang)}
             </button>
           </>
         )}
@@ -209,11 +209,11 @@ export const SelectedProvincePanel: React.FC<SelectedProvincePanelProps> = ({
               </div>
               <div className="p-2 rounded bg-slate-900/60 border border-slate-800">
                 <span className="text-slate-400 block text-[10px]">{t('economic_value', lang)}</span>
-                <span className="text-emerald-400 font-bold text-sm">{province.economicValue} GDP</span>
+                <span className="text-emerald-400 font-bold text-sm">{province.economicValue} {t('gdp', lang)}</span>
               </div>
               <div className="p-2 rounded bg-slate-900/60 border border-slate-800">
                 <span className="text-slate-400 block text-[10px]">{t('defense_level', lang)}</span>
-                <span className="text-cyan-400 font-bold text-sm">Tier {province.defenseLevel} Fort</span>
+                <span className="text-cyan-400 font-bold text-sm">{t('tier', lang)} {province.defenseLevel} · {t('fort', lang)}</span>
               </div>
               <div className="p-2 rounded bg-slate-900/60 border border-slate-800">
                 <span className="text-slate-400 block text-[10px]">{t('infrastructure', lang)}</span>
@@ -225,23 +225,23 @@ export const SelectedProvincePanel: React.FC<SelectedProvincePanelProps> = ({
               </div>
               <div className="p-2 rounded bg-slate-900/60 border border-slate-800">
                 <span className="text-slate-400 block text-[10px]">{t('strategic_importance', lang)}</span>
-                <span className="text-rose-400 font-bold text-sm">Priority {province.strategicImportance}/10</span>
+                <span className="text-rose-400 font-bold text-sm">{t('priority', lang)} {province.strategicImportance}/10</span>
               </div>
             </div>
 
             {/* Strategic Infrastructure facilities */}
             <div className="p-2.5 rounded bg-slate-900/70 border border-slate-800">
               <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block mb-1.5">
-                Installed Infrastructure
+                {t('installed_infrastructure', lang)}
               </span>
               <div className="flex flex-wrap gap-1.5">
                 {province.buildings.map(b => (
                   <span key={b.type} className="px-2 py-0.5 rounded bg-slate-800 text-slate-200 text-[11px] border border-slate-700">
-                    {BUILDING_DEFINITIONS[b.type]?.name || b.type} (Lv {b.level})
+                    {BUILDING_DEFINITIONS[b.type]?.name || b.type} ({t('level', lang)} {b.level})
                   </span>
                 ))}
                 {province.buildings.length === 0 && (
-                  <span className="text-slate-500 italic text-[11px]">No upgraded industrial complexes</span>
+                  <span className="text-slate-500 italic text-[11px]">{t('no_upgraded_complexes', lang)}</span>
                 )}
               </div>
             </div>
@@ -259,9 +259,9 @@ export const SelectedProvincePanel: React.FC<SelectedProvincePanelProps> = ({
                       <div>
                         <span className="text-white font-semibold block">{u.count}x {def?.name || u.type}</span>
                         <div className="flex gap-2 text-[10px] text-slate-400">
-                          <span>Morale: {u.morale}%</span>
-                          <span>Supply: {u.supply}%</span>
-                          <span>XP: {u.experience}</span>
+                          <span>{lang === 'ar' ? 'المعنويات' : 'Morale'}: {u.morale}%</span>
+                          <span>{lang === 'ar' ? 'الإمداد' : 'Supply'}: {u.supply}%</span>
+                          <span>{lang === 'ar' ? 'الخبرة' : 'XP'}: {u.experience}</span>
                         </div>
                       </div>
                       <span className="text-[10px] font-bold text-cyan-400 uppercase">{def?.branch || 'LAND'}</span>
@@ -301,7 +301,7 @@ export const SelectedProvincePanel: React.FC<SelectedProvincePanelProps> = ({
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="font-bold text-white text-xs block">{bDef.name}</span>
-                      <span className="text-[10px] text-slate-400">Level {currentLevel}/{bDef.maxLevel}</span>
+                        <span className="text-[10px] text-slate-400">{t('level', lang)} {currentLevel}/{bDef.maxLevel}</span>
                     </div>
                     <button
                       disabled={isMaxed}
@@ -317,7 +317,7 @@ export const SelectedProvincePanel: React.FC<SelectedProvincePanelProps> = ({
                           : 'bg-amber-600 hover:bg-amber-500 text-white'
                       }`}
                     >
-                      {isMaxed ? 'MAX LEVEL' : `Upgrade (${bDef.baseBuildTurns} turns)`}
+                      {isMaxed ? t('max_level', lang) : `${t('upgrade_turns', lang)} (${bDef.baseBuildTurns} ${lang === 'ar' ? 'دورات' : 'turns'})`}
                     </button>
                   </div>
                   <p className="text-[10px] text-slate-400">{bDef.description}</p>
@@ -336,7 +336,7 @@ export const SelectedProvincePanel: React.FC<SelectedProvincePanelProps> = ({
         {activeTab === 'RECRUIT' && isPlayerOwned && (
           <div className="space-y-2">
             <div className="flex items-center justify-between p-2 rounded bg-slate-900/50 border border-slate-800">
-              <span className="text-slate-300">Regiment Quantity:</span>
+              <span className="text-slate-300">{t('regiment_quantity', lang)}</span>
               <div className="flex gap-1.5">
                 {[1, 2, 5].map(cnt => (
                   <button
@@ -381,7 +381,7 @@ export const SelectedProvincePanel: React.FC<SelectedProvincePanelProps> = ({
                           : 'bg-emerald-600 hover:bg-emerald-500 text-white'
                       }`}
                     >
-                      {disabled ? (isNavalAndNoPort ? 'Port Required' : 'Airbase Required') : `Mobilize (${uDef.productionTurns}t)`}
+                      {disabled ? (isNavalAndNoPort ? t('port_required', lang) : t('airbase_required', lang)) : `${t('mobilize', lang)} (${uDef.productionTurns}t)`}
                     </button>
                   </div>
                   <p className="text-[10px] text-slate-400">{uDef.description}</p>
@@ -402,12 +402,12 @@ export const SelectedProvincePanel: React.FC<SelectedProvincePanelProps> = ({
             {friendlyNeighbors.length === 0 ? (
               <div className="p-3 rounded bg-red-950/40 border border-red-800 text-red-300 flex items-center gap-2">
                 <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                <span>No friendly provinces with stationed forces border this territory.</span>
+                <span>{t('no_border_forces', lang)}</span>
               </div>
             ) : (
               <>
                 <div className="space-y-1">
-                  <label className="text-[11px] text-slate-400">Launch Assault From Staging Base:</label>
+                  <label className="text-[11px] text-slate-400">{t('launch_from_base', lang)}</label>
                   <select
                     value={selectedAttackSourceId}
                     onChange={(e) => handleSelectSourceProvince(e.target.value)}
@@ -415,7 +415,7 @@ export const SelectedProvincePanel: React.FC<SelectedProvincePanelProps> = ({
                   >
                     {friendlyNeighbors.map(n => (
                       <option key={n.id} value={n.id}>
-                        {n.name} ({n.units.reduce((s, u) => s + u.count, 0)} units)
+                        {n.name} ({n.units.reduce((s, u) => s + u.count, 0)} {t('units', lang)})
                       </option>
                     ))}
                   </select>
@@ -425,7 +425,7 @@ export const SelectedProvincePanel: React.FC<SelectedProvincePanelProps> = ({
                 {selectedAttackSourceId && (
                   <div className="space-y-1.5">
                     <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">
-                      Select Task Force Units to Commit:
+                      {t('select_task_force', lang)}
                     </span>
                     {provinces[selectedAttackSourceId]?.units.map(u => {
                       const def = UNIT_DEFINITIONS[u.type];
@@ -445,7 +445,7 @@ export const SelectedProvincePanel: React.FC<SelectedProvincePanelProps> = ({
                             <span className="text-[10px] block text-slate-400">ATK {def?.attack * u.count} · DEF {def?.defense * u.count}</span>
                           </div>
                           <span className={`text-xs font-bold ${isSelected ? 'text-red-400' : 'text-slate-600'}`}>
-                            {isSelected ? 'COMMITTED' : 'STANDBY'}
+                            {isSelected ? t('committed', lang) : t('standby', lang)}
                           </span>
                         </div>
                       );
@@ -459,7 +459,7 @@ export const SelectedProvincePanel: React.FC<SelectedProvincePanelProps> = ({
                   className="w-full py-2.5 rounded bg-red-600 hover:bg-red-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg"
                 >
                   <Swords className="w-4 h-4" />
-                  <span>Execute Tactical Assault</span>
+                  <span>{t('execute_assault', lang)}</span>
                 </button>
               </>
             )}
