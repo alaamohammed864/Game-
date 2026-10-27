@@ -40,6 +40,14 @@ export const DiplomacyModal: React.FC<DiplomacyModalProps> = ({
 
   const selectedCountry = countries[selectedCountryId];
   const relation = player?.relations[selectedCountryId];
+  const formatStatus = (status?: DiplomaticStatus) => {
+    if (lang !== 'ar') return status || 'PEACE';
+    const labels: Partial<Record<DiplomaticStatus, string>> = {
+      PEACE: 'سلام', WAR: 'حرب', ALLIANCE: 'تحالف', DEFENSIVE_PACT: 'دفاع مشترك',
+      NON_AGGRESSION: 'عدم اعتداء',
+    };
+    return status ? labels[status] || status : 'سلام';
+  };
 
   const handleProposal = (proposalType: any) => {
     if (!selectedCountry) return;
@@ -51,7 +59,7 @@ export const DiplomacyModal: React.FC<DiplomacyModalProps> = ({
     if (!selectedCountry) return;
     onDeclareWar(selectedCountry.id);
     setFeedbackMessage({ 
-      text: `Hostilities opened against ${selectedCountry.name}. State of War is active!`, 
+      text: `${t('hostilities_opened', lang)} ${selectedCountry.name}. ${t('state_of_war_active', lang)}`,
       success: false 
     });
   };
@@ -65,10 +73,10 @@ export const DiplomacyModal: React.FC<DiplomacyModalProps> = ({
             <Handshake className="w-5 h-5 text-emerald-400" />
             <div>
               <h2 className="text-sm font-bold tracking-wider text-white uppercase">
-                {t('diplomacy', lang)} · Foreign Sovereign Embassies
+                {t('diplomacy', lang)} · {t('foreign_embassies', lang)}
               </h2>
               <span className="text-xs text-slate-400">
-                Manage geopolitical alliances, non-aggression treaties, and trade corridors
+                {t('diplomacy_intro', lang)}
               </span>
             </div>
           </div>
@@ -112,7 +120,7 @@ export const DiplomacyModal: React.FC<DiplomacyModalProps> = ({
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
                     isWar ? 'bg-red-500/20 text-red-400 border border-red-500/40' : 'bg-slate-800 text-slate-400'
                   }`}>
-                    {rel?.status || 'PEACE'}
+                    {formatStatus(rel?.status)}
                   </span>
                 </button>
               );
@@ -133,8 +141,8 @@ export const DiplomacyModal: React.FC<DiplomacyModalProps> = ({
                     {selectedCountry.name}
                   </h3>
                   <div className="text-xs text-slate-400 flex gap-3 mt-1">
-                    <span>Personality: <strong className="text-cyan-300">{selectedCountry.aiProfile.personality}</strong></span>
-                    <span>Doctrine: <strong className="text-slate-200">Tier {selectedCountry.completedTechs.length} Tech</strong></span>
+                    <span>{t('personality', lang)}: <strong className="text-cyan-300">{selectedCountry.aiProfile.personality}</strong></span>
+                    <span>{t('doctrine', lang)}: <strong className="text-slate-200">{t('tier', lang)} {selectedCountry.completedTechs.length} {t('tech', lang)}</strong></span>
                   </div>
                 </div>
 
@@ -146,8 +154,8 @@ export const DiplomacyModal: React.FC<DiplomacyModalProps> = ({
                     </span>
                   </div>
                   <div className="text-center p-2 rounded bg-slate-950 border border-slate-800 min-w-20">
-                    <span className="text-[10px] text-slate-400 block">Status</span>
-                    <span className="font-bold text-sm text-cyan-400">{relation?.status || 'PEACE'}</span>
+                    <span className="text-[10px] text-slate-400 block">{t('status', lang)}</span>
+                    <span className="font-bold text-sm text-cyan-400">{formatStatus(relation?.status)}</span>
                   </div>
                 </div>
               </div>
@@ -167,7 +175,7 @@ export const DiplomacyModal: React.FC<DiplomacyModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div className="p-3 rounded bg-slate-900/60 border border-slate-800 space-y-1.5">
                   <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">
-                    Strategic Foreign Priorities
+                    {t('strategic_priorities', lang)}
                   </span>
                   <ul className="list-disc list-inside text-slate-300 space-y-1 text-[11px]">
                     {selectedCountry.aiProfile.strategicGoals.map((goal, idx) => (
@@ -178,13 +186,13 @@ export const DiplomacyModal: React.FC<DiplomacyModalProps> = ({
 
                 <div className="p-3 rounded bg-slate-900/60 border border-slate-800 space-y-1.5">
                   <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">
-                    {t('ai_memory', lang)} & Past Conflicts
+                    {t('ai_memory', lang)} · {t('past_conflicts', lang)}
                   </span>
                   <div className="text-slate-300 space-y-1 text-[11px]">
-                    <div>Wars fought: <strong className="text-white">{relation?.memory.warsFought || 0}</strong></div>
-                    <div>Treaties honored: <strong className="text-white">{relation?.memory.treatiesKept || 0}</strong></div>
-                    <div>Trade Agreement: <strong className={relation?.tradeAgreementActive ? "text-emerald-400" : "text-slate-400"}>
-                      {relation?.tradeAgreementActive ? "Active" : "Inactive"}
+                    <div>{t('wars_fought', lang)}: <strong className="text-white">{relation?.memory.warsFought || 0}</strong></div>
+                    <div>{t('treaties_honored', lang)}: <strong className="text-white">{relation?.memory.treatiesKept || 0}</strong></div>
+                    <div>{t('trade_agreement', lang)}: <strong className={relation?.tradeAgreementActive ? "text-emerald-400" : "text-slate-400"}>
+                      {relation?.tradeAgreementActive ? t('active', lang) : t('inactive', lang)}
                     </strong></div>
                     <div className="text-slate-400 italic text-[10px] mt-1">{relation?.memory.summary}</div>
                   </div>
@@ -194,7 +202,7 @@ export const DiplomacyModal: React.FC<DiplomacyModalProps> = ({
               {/* Treaty Negotiation Actions */}
               <div className="space-y-2">
                 <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">
-                  Sovereign Diplomatic Actions
+                  {t('sovereign_actions', lang)}
                 </span>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   <button
@@ -203,7 +211,7 @@ export const DiplomacyModal: React.FC<DiplomacyModalProps> = ({
                     className="p-2.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800 disabled:opacity-50 text-slate-200 text-xs text-left"
                   >
                     <strong className="block text-white">{t('alliance', lang)}</strong>
-                    <span className="text-[10px] text-slate-400">Mutual defense & access</span>
+                    <span className="text-[10px] text-slate-400">{t('mutual_defense', lang)}</span>
                   </button>
 
                   <button
@@ -212,7 +220,7 @@ export const DiplomacyModal: React.FC<DiplomacyModalProps> = ({
                     className="p-2.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800 disabled:opacity-50 text-slate-200 text-xs text-left"
                   >
                     <strong className="block text-white">{t('defensive_pact', lang)}</strong>
-                    <span className="text-[10px] text-slate-400">Aid if attacked by 3rd party</span>
+                    <span className="text-[10px] text-slate-400">{t('third_party_aid', lang)}</span>
                   </button>
 
                   <button
@@ -221,7 +229,7 @@ export const DiplomacyModal: React.FC<DiplomacyModalProps> = ({
                     className="p-2.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800 disabled:opacity-50 text-slate-200 text-xs text-left"
                   >
                     <strong className="block text-white">{t('non_aggression', lang)}</strong>
-                    <span className="text-[10px] text-slate-400">Pact to avoid war</span>
+                    <span className="text-[10px] text-slate-400">{t('avoid_war', lang)}</span>
                   </button>
 
                   <button
@@ -230,7 +238,7 @@ export const DiplomacyModal: React.FC<DiplomacyModalProps> = ({
                     className="p-2.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800 disabled:opacity-50 text-slate-200 text-xs text-left"
                   >
                     <strong className="block text-white">{t('trade_deal', lang)}</strong>
-                    <span className="text-[10px] text-slate-400">+150 treasury / turn</span>
+                    <span className="text-[10px] text-slate-400">{t('treasury_per_turn', lang)}</span>
                   </button>
 
                   <button
@@ -239,7 +247,7 @@ export const DiplomacyModal: React.FC<DiplomacyModalProps> = ({
                     className="p-2.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800 disabled:opacity-50 text-slate-200 text-xs text-left"
                   >
                     <strong className="block text-white">{t('military_access', lang)}</strong>
-                    <span className="text-[10px] text-slate-400">Transit rights</span>
+                    <span className="text-[10px] text-slate-400">{t('transit_rights', lang)}</span>
                   </button>
 
                   {relation?.status === 'WAR' && (
@@ -248,7 +256,7 @@ export const DiplomacyModal: React.FC<DiplomacyModalProps> = ({
                       className="p-2.5 rounded bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500 text-emerald-200 text-xs text-left"
                     >
                       <strong className="block text-white">{t('request_peace', lang)}</strong>
-                      <span className="text-[10px] text-emerald-300">Ceasefire agreement</span>
+                      <span className="text-[10px] text-emerald-300">{t('ceasefire_agreement', lang)}</span>
                     </button>
                   )}
                 </div>

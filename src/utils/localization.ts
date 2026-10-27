@@ -142,6 +142,7 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     mission_alliance_title: 'Architect of Peace', mission_alliance_desc: 'Establish 2 or more formal military alliances or defensive pacts with foreign powers.',
     mission_oil_title: 'Energy & Fuel Security', mission_oil_desc: 'Maintain a strategic oil reserve surplus of over 2,000 barrels.',
     ready_to_claim: 'READY TO CLAIM', claim_bounty: 'Claim Bounty', fulfilled: 'Fulfilled', progress: 'Progress', rewards: 'REWARDS:',
+    foreign_embassies: 'Foreign Sovereign Embassies', diplomacy_intro: 'Manage alliances, non-aggression treaties, and trade corridors.', personality: 'Personality', doctrine: 'Doctrine', tech: 'Tech', status: 'Status', strategic_priorities: 'Strategic Foreign Priorities', past_conflicts: 'Past Conflicts', wars_fought: 'Wars fought', treaties_honored: 'Treaties honored', trade_agreement: 'Trade Agreement', active: 'Active', inactive: 'Inactive', sovereign_actions: 'Sovereign Diplomatic Actions', mutual_defense: 'Mutual defense and access', third_party_aid: 'Aid if attacked by a third party', avoid_war: 'Pact to avoid war', treasury_per_turn: '+150 treasury / turn', transit_rights: 'Transit rights', ceasefire_agreement: 'Ceasefire agreement', hostilities_opened: 'Hostilities opened against', state_of_war_active: 'State of War is active!',
   },
   ar: {
     game_title: 'القيادة العالمية: عصر الاستراتيجية',
@@ -284,6 +285,7 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     mission_alliance_title: 'صانع السلام', mission_alliance_desc: 'أقم تحالفين عسكريين رسميين أو معاهدتي دفاع مشترك مع قوى أجنبية على الأقل.',
     mission_oil_title: 'أمن الطاقة والوقود', mission_oil_desc: 'حافظ على فائض احتياطي نفطي استراتيجي يتجاوز ٢٠٠٠ برميل.',
     ready_to_claim: 'جاهزة للمطالبة', claim_bounty: 'استلام المكافأة', fulfilled: 'مكتملة', progress: 'التقدم', rewards: 'المكافآت:',
+    foreign_embassies: 'السفارات والقوى الأجنبية', diplomacy_intro: 'إدارة التحالفات ومعاهدات عدم الاعتداء وممرات التجارة.', personality: 'الشخصية', doctrine: 'العقيدة', tech: 'تقنية', status: 'الحالة', strategic_priorities: 'الأولويات الخارجية الاستراتيجية', past_conflicts: 'النزاعات السابقة', wars_fought: 'الحروب السابقة', treaties_honored: 'المعاهدات الملتزم بها', trade_agreement: 'الاتفاق التجاري', active: 'مفعّل', inactive: 'غير مفعّل', sovereign_actions: 'الإجراءات الدبلوماسية السيادية', mutual_defense: 'دفاع متبادل وحق عبور', third_party_aid: 'المساعدة عند هجوم طرف ثالث', avoid_war: 'معاهدة لتجنب الحرب', treasury_per_turn: '+١٥٠ للخزينة في كل دورة', transit_rights: 'حقوق العبور', ceasefire_agreement: 'اتفاق وقف إطلاق النار', hostilities_opened: 'بدأت الأعمال العدائية ضد', state_of_war_active: 'حالة الحرب مفعلة!',
   }
 };
 
