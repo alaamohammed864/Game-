@@ -40,10 +40,10 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({
             <Cpu className="w-5 h-5 text-cyan-400" />
             <div>
               <h2 className="text-sm font-bold tracking-wider text-white uppercase">
-                {t('research', lang)} · Technological Supremacy Tree
+                {t('research', lang)} · {t('research_tree', lang)}
               </h2>
               <span className="text-xs text-slate-400">
-                Science Reserves: <strong className="text-cyan-300">{player.resources.techPoints.toLocaleString()} TP</strong>
+                {t('science_reserves', lang)}: <strong className="text-cyan-300">{player.resources.techPoints.toLocaleString()} {t('tech_points', lang)}</strong>
               </span>
             </div>
           </div>
@@ -58,13 +58,13 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
               <span>
-                Active Project: <strong className="text-white">
+                {t('active_project', lang)}: <strong className="text-white">
                   {TECH_TREE.find(t => t.id === player.currentResearch!.techId)?.name}
                 </strong>
               </span>
             </div>
             <span className="text-cyan-300 font-bold">
-              Progress: {Math.round(player.currentResearch.progress)} / {TECH_TREE.find(t => t.id === player.currentResearch!.techId)?.cost} TP
+              {t('research_progress', lang)}: {Math.round(player.currentResearch.progress)} / {TECH_TREE.find(t => t.id === player.currentResearch!.techId)?.cost} {t('tech_points', lang)}
             </span>
           </div>
         )}
@@ -81,7 +81,7 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({
                   : 'border-transparent text-slate-400 hover:text-white'
               }`}
             >
-              {cat}
+              {lang === 'ar' ? ({ ALL: 'الكل', MILITARY: 'عسكري', ECONOMY: 'اقتصاد', SCIENCE: 'علوم', INFRASTRUCTURE: 'بنية تحتية' }[cat]) : cat}
             </button>
           ))}
         </div>
@@ -116,14 +116,14 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({
                       isResearching ? 'bg-cyan-500/20 text-cyan-300' :
                       isAvailable ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-800 text-slate-500'
                     }`}>
-                      {status}
+                      {t(status.toLowerCase(), lang)}
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-300 mb-2 leading-relaxed">{tech.description}</p>
                   
                   {tech.prerequisites.length > 0 && (
                     <div className="text-[10px] text-slate-400 mb-2">
-                      <span>Prerequisites: </span>
+                      <span>{t('prerequisites', lang)} </span>
                       <span className="text-cyan-400">
                         {tech.prerequisites.map(p => TECH_TREE.find(t => t.id === p)?.name || p).join(', ')}
                       </span>
@@ -132,31 +132,31 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({
                 </div>
 
                 <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
-                  <span className="text-[11px] text-cyan-300 font-bold">{tech.cost} Tech Points</span>
+                  <span className="text-[11px] text-cyan-300 font-bold">{tech.cost} {t('tech_points', lang)}</span>
                   {isAvailable && (
                     <button
                       disabled={Boolean(player.currentResearch)}
-                      title={player.currentResearch ? 'Finish the current project first' : undefined}
+                      title={player.currentResearch ? (lang === 'ar' ? 'أكمل البحث الحالي أولًا' : 'Finish the current project first') : undefined}
                       onClick={() => onStartResearch(tech.id)}
                       className="px-3 py-1 rounded bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold text-xs"
                     >
-                      Commission R&D
+                      {t('commission_research', lang)}
                     </button>
                   )}
                   {isCompleted && (
                     <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-bold">
                       <CheckCircle className="w-3.5 h-3.5" />
-                      <span>Unlocked</span>
+                      <span>{t('unlocked', lang)}</span>
                     </span>
                   )}
                   {isLocked && (
                     <span className="flex items-center gap-1 text-[11px] text-slate-500">
                       <Lock className="w-3.5 h-3.5" />
-                      <span>Locked</span>
+                      <span>{t('locked', lang)}</span>
                     </span>
                   )}
                   {isResearching && (
-                    <span className="text-[11px] text-cyan-400 font-bold">Project in Progress</span>
+                    <span className="text-[11px] text-cyan-400 font-bold">{t('project_in_progress', lang)}</span>
                   )}
                 </div>
               </div>

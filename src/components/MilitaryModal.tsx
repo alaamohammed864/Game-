@@ -55,10 +55,10 @@ export const MilitaryModal: React.FC<MilitaryModalProps> = ({
             <Shield className="w-5 h-5 text-rose-400" />
             <div>
               <h2 className="text-sm font-bold tracking-wider text-white uppercase">
-                {t('military', lang)} · Supreme High Command Order of Battle
+                {t('military', lang)}
               </h2>
               <span className="text-xs text-slate-400">
-                Manpower Pool: <strong className="text-rose-300">{player.resources.manpower.toLocaleString()}</strong> · Armed Forces Distribution
+                {t('res_manpower', lang)}: <strong className="text-rose-300">{player.resources.manpower.toLocaleString()}</strong>
               </span>
             </div>
           </div>
@@ -73,10 +73,10 @@ export const MilitaryModal: React.FC<MilitaryModalProps> = ({
           <div className="p-3.5 rounded bg-slate-900/60 border border-slate-800 space-y-2">
             <div className="flex items-center gap-2 text-amber-400">
               <Clock className="w-4 h-4" />
-              <span className="font-bold text-xs uppercase">Active Production & Recruitment Queues</span>
+              <span className="font-bold text-xs uppercase">{t('active_recruitment', lang)}</span>
             </div>
             {playerMilQueue.length === 0 ? (
-              <span className="text-slate-500 italic block text-xs">No active regiment recruitment orders. Select an owned province to mobilize forces.</span>
+              <span className="text-slate-500 italic block text-xs">{t('no_recruitment', lang)}</span>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {playerMilQueue.map(item => {
@@ -86,10 +86,10 @@ export const MilitaryModal: React.FC<MilitaryModalProps> = ({
                     <div key={item.id} className="p-2 rounded bg-slate-950 border border-slate-800 flex justify-between items-center">
                       <div>
                         <strong className="text-white block">{item.count}x {def?.name || item.unitType}</strong>
-                        <span className="text-[10px] text-slate-400">Deploying to: {prov?.name}</span>
+                        <span className="text-[10px] text-slate-400">{t('deploying_to', lang)} {prov?.name}</span>
                       </div>
                       <span className="text-xs font-bold text-amber-400 px-2 py-1 rounded bg-amber-950/40 border border-amber-800/40">
-                        {item.turnsRemaining} turns left
+                        {item.turnsRemaining} {t('turns_left', lang)}
                       </span>
                     </div>
                   );
@@ -110,15 +110,15 @@ export const MilitaryModal: React.FC<MilitaryModalProps> = ({
                 <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
                   <div className="flex items-center gap-2">
                     {branchIcon}
-                    <span className="font-bold text-white text-xs uppercase tracking-wider">{branch} Forces</span>
+                    <span className="font-bold text-white text-xs uppercase tracking-wider">{lang === 'ar' ? (branch === 'LAND' ? 'القوات البرية' : branch === 'AIR' ? 'القوات الجوية' : 'القوات البحرية') : `${branch} Forces`}</span>
                   </div>
                   <span className="text-[11px] text-slate-400">
-                    {list.reduce((s, item) => s + item.unit.count, 0)} Active Units
+                    {list.reduce((s, item) => s + item.unit.count, 0)} {t('active_units', lang)}
                   </span>
                 </div>
 
                 {list.length === 0 ? (
-                  <span className="text-slate-500 italic block text-[11px]">No active {branch} units currently in service.</span>
+                  <span className="text-slate-500 italic block text-[11px]">{t('no_branch_units', lang)}</span>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {list.map((item, idx) => (

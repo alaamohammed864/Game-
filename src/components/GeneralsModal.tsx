@@ -184,22 +184,22 @@ export const GeneralsModal: React.FC<GeneralsModalProps> = ({
                         </div>
 
                         <span className="px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-300 font-bold text-[10px]">
-                          RANK {general.level}
+                          {t('rank', lang)} {general.level}
                         </span>
                       </div>
 
                       {/* Buffs stats */}
                       <div className="grid grid-cols-3 gap-2 py-2 text-[10px] text-slate-300">
                         <div className="p-1 rounded bg-slate-950 border border-slate-900 text-center">
-                          <span className="text-slate-500 block">ATK BUFF</span>
+                          <span className="text-slate-500 block">{t('attack_bonus', lang)}</span>
                           <span className="text-emerald-400 font-bold">+{(general.attackBonus * 100).toFixed(0)}%</span>
                         </div>
                         <div className="p-1 rounded bg-slate-950 border border-slate-900 text-center">
-                          <span className="text-slate-500 block">DEF BUFF</span>
+                          <span className="text-slate-500 block">{t('defense_bonus', lang)}</span>
                           <span className="text-cyan-400 font-bold">+{(general.defenseBonus * 100).toFixed(0)}%</span>
                         </div>
                         <div className="p-1 rounded bg-slate-950 border border-slate-900 text-center">
-                          <span className="text-slate-500 block">MOBILITY</span>
+                          <span className="text-slate-500 block">{t('mobility', lang)}</span>
                           <span className="text-amber-400 font-bold">+{(general.speedBonus * 100).toFixed(0)}%</span>
                         </div>
                       </div>

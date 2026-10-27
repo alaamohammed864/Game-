@@ -33,7 +33,7 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({
   }, []);
 
   const handleCreateSave = async () => {
-    const name = newSaveName.trim() || `Campaign Turn ${currentState.currentTurn}`;
+    const name = newSaveName.trim() || `${t('new_campaign', lang)} · ${t('turn', lang)} ${currentState.currentTurn}`;
     const slotId = `slot_${Date.now()}`;
     const res = await storage.saveGame(slotId, name, currentState);
     if (res.success) {
@@ -108,10 +108,10 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({
             <Save className="w-5 h-5 text-sky-400" />
             <div>
               <h2 className="text-sm font-bold tracking-wider text-white uppercase">
-                Campaign Persistence Vault
+                {t('campaign_vault', lang)}
               </h2>
               <span className="text-xs text-slate-400">
-                IndexedDB Local Storage & JSON Military Archives
+                {t('local_json_archive', lang)}
               </span>
             </div>
           </div>
@@ -131,12 +131,12 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({
           {/* Create New Save Slot */}
           <div className="p-3 rounded bg-slate-900/70 border border-slate-800 space-y-2">
             <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">
-              Record New Campaign Checkpoint
+              {t('new_checkpoint', lang)}
             </span>
             <div className="flex gap-2">
               <input
                 type="text"
-                placeholder="Name your save checkpoint..."
+                placeholder={t('save_name_placeholder', lang)}
                 value={newSaveName}
                 onChange={(e) => setNewSaveName(e.target.value)}
                 className="flex-1 bg-slate-950 border border-slate-700 text-white rounded px-3 py-1.5 text-xs font-mono"
@@ -146,7 +146,7 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({
                 className="px-4 py-1.5 rounded bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs flex items-center gap-1.5"
               >
                 <Save className="w-3.5 h-3.5" />
-                <span>Save</span>
+                <span>{t('save', lang)}</span>
               </button>
             </div>
           </div>
@@ -154,11 +154,11 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({
           {/* Existing Save Slots */}
           <div className="space-y-2">
             <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">
-              Stored Campaign Slots
+              {t('stored_saves', lang)}
             </span>
             {saves.length === 0 ? (
               <div className="p-4 rounded bg-slate-900/40 text-center text-slate-500 text-xs">
-                No archived saves recorded yet.
+                {t('no_saves', lang)}
               </div>
             ) : (
               saves.map(s => (
@@ -175,16 +175,16 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({
                       <strong className="text-white text-xs">{s.name}</strong>
                       {s.isAutosave && (
                         <span className="px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 text-[9px]">
-                          AUTOSAVE
+                          {t('autosave', lang)}
                         </span>
                       )}
                     </div>
                     <div className="flex gap-3 text-[10px] text-slate-400 mt-0.5">
-                      <span>Turn {s.turn} ({s.date})</span>
+                      <span>{t('turn', lang)} {s.turn} ({s.date})</span>
                       <span>·</span>
                       <span>{s.playerCountryName}</span>
                       <span>·</span>
-                      <span>{new Date(s.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      <span>{new Date(s.timestamp).toLocaleTimeString(lang === 'ar' ? 'ar-IQ' : 'en-US', { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                   </div>
 
@@ -194,13 +194,13 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({
                       className="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold text-xs flex items-center gap-1"
                     >
                       <FolderOpen className="w-3.5 h-3.5" />
-                      <span>Load</span>
+                      <span>{t('load', lang)}</span>
                     </button>
                     {!s.isAutosave && (
                       <button
                         onClick={() => handleDeleteSlot(s.id)}
                         className="p-1.5 rounded bg-slate-800 hover:bg-red-900 text-slate-400 hover:text-red-200"
-                        title="Delete slot"
+                        title={t('delete_save', lang)}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -219,7 +219,7 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({
                 className="px-3 py-1.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 flex items-center gap-1.5 text-xs font-mono"
               >
                 <Download className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Export Save File (JSON)</span>
+                <span>{t('export_save', lang)}</span>
               </button>
               <label className="px-3 py-1.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 flex items-center gap-1.5 text-xs font-mono cursor-pointer">
                 <Upload className="w-3.5 h-3.5 text-emerald-400" />
@@ -231,7 +231,7 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({
                 className="px-3 py-1.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 flex items-center gap-1.5 text-xs font-mono"
               >
                 <Upload className="w-3.5 h-3.5 text-amber-400" />
-                <span>Import JSON</span>
+                <span>{t('import_json', lang)}</span>
               </button>
             </div>
 
@@ -239,7 +239,7 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({
               <div className="p-3 rounded bg-slate-900/70 border border-slate-800 space-y-2 mt-2">
                 <textarea
                   rows={4}
-                  placeholder="Paste raw save JSON code here..."
+                  placeholder={t('paste_save', lang)}
                   value={importJsonText}
                   onChange={(e) => setImportJsonText(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-700 text-white rounded p-2 text-[10px] font-mono"
@@ -248,7 +248,7 @@ export const SaveLoadModal: React.FC<SaveLoadModalProps> = ({
                   onClick={handleImportJson}
                   className="px-4 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs"
                 >
-                  Load Pasted Save
+                  {t('load_pasted_save', lang)}
                 </button>
               </div>
             )}

@@ -59,7 +59,7 @@ export const EventNotificationBanner: React.FC<EventNotificationBannerProps> = (
 
   return (
     <aside 
-      aria-label="Geopolitical Directive Alert"
+      aria-label={t('directive_alert', lang)}
       className="fixed top-14 left-1/2 -translate-x-1/2 z-40 w-[94vw] max-w-lg transition-all duration-300 animate-in fade-in slide-in-from-top-4 select-none"
     >
       <div className={`p-3 rounded-xl border ${style.border} ${style.bg} backdrop-blur-md shadow-2xl flex flex-col gap-2 font-mono`}>
@@ -70,7 +70,7 @@ export const EventNotificationBanner: React.FC<EventNotificationBannerProps> = (
               {style.icon}
             </span>
             <span className={`text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 rounded border ${style.badgeBg}`}>
-              {event.severity} · {t('directives', lang)}
+              {lang === 'ar' ? ({ BOOM: 'فرصة', CRISIS: 'أزمة', WARNING: 'تحذير', INFO: 'معلومة' }[event.severity]) : event.severity} · {t('directives', lang)}
             </span>
           </div>
 
@@ -78,7 +78,7 @@ export const EventNotificationBanner: React.FC<EventNotificationBannerProps> = (
             onClick={onDismissToast}
             className="p-1 text-slate-400 hover:text-white rounded hover:bg-white/10 transition-colors"
             title={t('decide_later', lang)}
-            aria-label="Dismiss toast"
+            aria-label={t('dismiss_toast', lang)}
           >
             <X className="w-4 h-4" />
           </button>
@@ -87,10 +87,10 @@ export const EventNotificationBanner: React.FC<EventNotificationBannerProps> = (
         {/* Title and Excerpt */}
         <div className="space-y-0.5">
           <h4 className={`text-xs sm:text-sm font-bold tracking-wide truncate ${style.titleColor}`}>
-            {event.titleKey}
+            {t(event.titleKey, lang)}
           </h4>
           <p className="text-[11px] text-slate-300 line-clamp-2 leading-relaxed">
-            {event.descKey}
+            {t(event.descKey, lang)}
           </p>
         </div>
 

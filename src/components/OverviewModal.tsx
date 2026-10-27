@@ -38,10 +38,10 @@ export const OverviewModal: React.FC<OverviewModalProps> = ({
             <BarChart3 className="w-5 h-5 text-cyan-400" />
             <div>
               <h2 className="text-sm font-bold tracking-wider text-white uppercase">
-                {player.name} · National Command Dossier
+                {player.name} · {t('national_dossier', lang)}
               </h2>
               <span className="text-xs text-slate-400">
-                Sovereign Score: <strong className="text-cyan-300">{player.score}</strong> · Personality: {player.aiProfile.personality}
+                {t('sovereign_score', lang)}: <strong className="text-cyan-300">{player.score}</strong> · {t('personality', lang)}: {player.aiProfile.personality}
               </span>
             </div>
           </div>
@@ -55,19 +55,19 @@ export const OverviewModal: React.FC<OverviewModalProps> = ({
           {/* Key Metric Tiles */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             <div className="p-3 rounded bg-slate-900/60 border border-slate-800">
-              <span className="text-[10px] text-slate-400 uppercase font-bold block">Controlled Provinces</span>
+              <span className="text-[10px] text-slate-400 uppercase font-bold block">{t('controlled_provinces', lang)}</span>
               <span className="text-white font-bold text-lg">{ownedProvinces.length} / {Object.keys(provinces).length}</span>
             </div>
             <div className="p-3 rounded bg-slate-900/60 border border-slate-800">
-              <span className="text-[10px] text-slate-400 uppercase font-bold block">Total Citizenry</span>
-              <span className="text-cyan-400 font-bold text-lg">{totalPopulation.toFixed(1)} Million</span>
+              <span className="text-[10px] text-slate-400 uppercase font-bold block">{t('total_citizenry', lang)}</span>
+              <span className="text-cyan-400 font-bold text-lg">{totalPopulation.toFixed(1)} {lang === 'ar' ? 'مليون' : 'Million'}</span>
             </div>
             <div className="p-3 rounded bg-slate-900/60 border border-slate-800">
-              <span className="text-[10px] text-slate-400 uppercase font-bold block">Mobilized Divisions</span>
-              <span className="text-rose-400 font-bold text-lg">{totalDivisions} Regiments</span>
+              <span className="text-[10px] text-slate-400 uppercase font-bold block">{t('mobilized_divisions', lang)}</span>
+              <span className="text-rose-400 font-bold text-lg">{totalDivisions} {lang === 'ar' ? 'فوجًا' : 'Regiments'}</span>
             </div>
             <div className="p-3 rounded bg-slate-900/60 border border-slate-800">
-              <span className="text-[10px] text-slate-400 uppercase font-bold block">Average Stability</span>
+              <span className="text-[10px] text-slate-400 uppercase font-bold block">{t('average_stability', lang)}</span>
               <span className="text-amber-400 font-bold text-lg">{averageStability}%</span>
             </div>
           </div>
@@ -76,15 +76,15 @@ export const OverviewModal: React.FC<OverviewModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="p-3 rounded bg-slate-900/60 border border-slate-800 space-y-1.5">
               <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">
-                Active Theatres of War ({activeWars.length})
+                {t('active_war_theatres', lang)} ({activeWars.length})
               </span>
               {activeWars.length === 0 ? (
-                <span className="text-slate-500 italic text-xs">At peace with all sovereign states.</span>
+                <span className="text-slate-500 italic text-xs">{t('peace_all', lang)}</span>
               ) : (
                 activeWars.map(w => (
                   <div key={w.targetCountryId} className="flex items-center justify-between p-2 rounded bg-red-950/40 border border-red-900 text-red-200">
                     <span className="font-bold">{countries[w.targetCountryId]?.name}</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">ACTIVE WAR</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">{t('active_war', lang)}</span>
                   </div>
                 ))
               )}
@@ -92,15 +92,15 @@ export const OverviewModal: React.FC<OverviewModalProps> = ({
 
             <div className="p-3 rounded bg-slate-900/60 border border-slate-800 space-y-1.5">
               <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">
-                Formal Military Alliances ({activeAlliances.length})
+                {t('formal_alliances', lang)} ({activeAlliances.length})
               </span>
               {activeAlliances.length === 0 ? (
-                <span className="text-slate-500 italic text-xs">No formal defensive treaties ratified.</span>
+                <span className="text-slate-500 italic text-xs">{t('no_treaties', lang)}</span>
               ) : (
                 activeAlliances.map(a => (
                   <div key={a.targetCountryId} className="flex items-center justify-between p-2 rounded bg-emerald-950/40 border border-emerald-900 text-emerald-200">
                     <span className="font-bold">{countries[a.targetCountryId]?.name}</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">ALLIED</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">{t('allied', lang)}</span>
                   </div>
                 ))
               )}
@@ -110,18 +110,18 @@ export const OverviewModal: React.FC<OverviewModalProps> = ({
           {/* Combat Statistics */}
           <div className="p-3 rounded bg-slate-900/70 border border-slate-800 flex items-center justify-around text-center">
             <div>
-              <span className="text-[10px] text-slate-400 block uppercase font-bold">Casualties Inflicted</span>
-              <span className="text-emerald-400 font-bold text-base">{player.totalKills.toLocaleString()} troops</span>
+              <span className="text-[10px] text-slate-400 block uppercase font-bold">{t('casualties_inflicted', lang)}</span>
+              <span className="text-emerald-400 font-bold text-base">{player.totalKills.toLocaleString()} {lang === 'ar' ? 'جندي' : 'troops'}</span>
             </div>
             <div className="w-px h-8 bg-slate-800" />
             <div>
-              <span className="text-[10px] text-slate-400 block uppercase font-bold">Friendly Losses</span>
-              <span className="text-rose-400 font-bold text-base">{player.totalLosses.toLocaleString()} troops</span>
+              <span className="text-[10px] text-slate-400 block uppercase font-bold">{t('friendly_losses', lang)}</span>
+              <span className="text-rose-400 font-bold text-base">{player.totalLosses.toLocaleString()} {lang === 'ar' ? 'جندي' : 'troops'}</span>
             </div>
             <div className="w-px h-8 bg-slate-800" />
             <div>
-              <span className="text-[10px] text-slate-400 block uppercase font-bold">Tech Breakthroughs</span>
-              <span className="text-cyan-400 font-bold text-base">{player.completedTechs.length} Unlocked</span>
+              <span className="text-[10px] text-slate-400 block uppercase font-bold">{t('tech_breakthroughs', lang)}</span>
+              <span className="text-cyan-400 font-bold text-base">{player.completedTechs.length} {t('unlocked', lang)}</span>
             </div>
           </div>
         </div>

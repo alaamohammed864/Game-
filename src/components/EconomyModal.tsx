@@ -50,10 +50,10 @@ export const EconomyModal: React.FC<EconomyModalProps> = ({
             <Factory className="w-5 h-5 text-amber-400" />
             <div>
               <h2 className="text-sm font-bold tracking-wider text-white uppercase">
-                {t('economy', lang)} · Ministry of Industry & Global Commodities
+                {t('economy', lang)} · {t('industry_ministry', lang)}
               </h2>
               <span className="text-xs text-slate-400">
-                Treasury: <strong className="text-emerald-400">${player.resources.money.toLocaleString()}</strong> · Macro Balance Sheet
+                {t('res_money', lang)}: <strong className="text-emerald-400">${player.resources.money.toLocaleString()}</strong> · {t('macro_balance', lang)}
               </span>
             </div>
           </div>
@@ -69,7 +69,7 @@ export const EconomyModal: React.FC<EconomyModalProps> = ({
             <div className="p-3 rounded bg-red-950/50 border border-red-600/80 text-red-200 space-y-1">
               <div className="flex items-center gap-2 font-bold">
                 <AlertTriangle className="w-4 h-4 text-red-400" />
-                <span>CRITICAL INDUSTRIAL SUPPLY ALERTS</span>
+                <span>{t('industrial_alerts', lang)}</span>
               </div>
               {shortages.oil && <p className="text-[11px]">• {t('oil_shortage_warn', lang)}</p>}
               {shortages.food && <p className="text-[11px]">• {t('food_shortage_warn', lang)}</p>}
@@ -80,18 +80,18 @@ export const EconomyModal: React.FC<EconomyModalProps> = ({
           {/* Macro Balance Sheet Table */}
           <div className="p-3.5 rounded bg-slate-900/60 border border-slate-800 space-y-2">
             <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">
-              National Strategic Stockpile Ledger
+              {t('stockpile_ledger', lang)}
             </span>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-slate-800 text-slate-400 text-[10px]">
-                    <th className="py-1.5 px-2">COMMODITY</th>
-                    <th className="py-1.5 px-2">STOCKPILE</th>
-                    <th className="py-1.5 px-2">GROSS OUTPUT</th>
-                    <th className="py-1.5 px-2">CONSUMPTION</th>
-                    <th className="py-1.5 px-2">NET / TURN</th>
-                    <th className="py-1.5 px-2">SPOT PRICE</th>
+                    <th className="py-1.5 px-2">{t('commodity', lang)}</th>
+                    <th className="py-1.5 px-2">{t('stockpile', lang)}</th>
+                    <th className="py-1.5 px-2">{t('gross_output', lang)}</th>
+                    <th className="py-1.5 px-2">{t('consumption', lang)}</th>
+                    <th className="py-1.5 px-2">{t('net_turn', lang)}</th>
+                    <th className="py-1.5 px-2">{t('spot_price', lang)}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 text-[11px]">
@@ -104,7 +104,7 @@ export const EconomyModal: React.FC<EconomyModalProps> = ({
 
                     return (
                       <tr key={key} className="hover:bg-slate-850/50">
-                        <td className="py-2 px-2 font-bold uppercase text-white">{key}</td>
+                        <td className="py-2 px-2 font-bold uppercase text-white">{t(`res_${key}`, lang)}</td>
                         <td className="py-2 px-2 text-cyan-300 font-bold">{stock.toLocaleString()}</td>
                         <td className="py-2 px-2 text-emerald-400">+{prod.toLocaleString()}</td>
                         <td className="py-2 px-2 text-rose-400">-{cons.toLocaleString()}</td>
@@ -124,7 +124,7 @@ export const EconomyModal: React.FC<EconomyModalProps> = ({
           <div className="p-3.5 rounded bg-slate-900/60 border border-slate-800 space-y-3">
             <div className="flex items-center gap-2">
               <ArrowRightLeft className="w-4 h-4 text-cyan-400" />
-              <span className="font-bold text-xs uppercase text-white">Global Sovereign Commodity Exchange</span>
+              <span className="font-bold text-xs uppercase text-white">{t('commodity_exchange', lang)}</span>
             </div>
 
             {feedback && (
@@ -137,7 +137,7 @@ export const EconomyModal: React.FC<EconomyModalProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="text-[10px] text-slate-400 block mb-1">SELECT COMMODITY:</label>
+                <label className="text-[10px] text-slate-400 block mb-1">{t('select_commodity', lang)}</label>
                 <select
                   value={tradeResource}
                   onChange={(e) => setTradeResource(e.target.value as ResourceKey)}
@@ -145,14 +145,14 @@ export const EconomyModal: React.FC<EconomyModalProps> = ({
                 >
                   {tradableResources.map(r => (
                     <option key={r} value={r}>
-                      {r.toUpperCase()} (Spot: ${marketPrices[r]}/unit)
+                      {t(`res_${r}`, lang)} ({t('spot_price', lang)}: ${marketPrices[r]}{t('per_unit', lang)})
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="text-[10px] text-slate-400 block mb-1">CONTRACT VOLUME:</label>
+                <label className="text-[10px] text-slate-400 block mb-1">{t('contract_volume', lang)}</label>
                 <div className="flex gap-1.5">
                   {[250, 500, 1000, 2500].map(amt => (
                     <button
@@ -173,13 +173,13 @@ export const EconomyModal: React.FC<EconomyModalProps> = ({
                   onClick={handleBuy}
                   className="flex-1 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase"
                 >
-                  Buy (${Math.round(tradeAmount * (marketPrices[tradeResource] || 10)).toLocaleString()})
+                  {t('buy', lang)} (${Math.round(tradeAmount * (marketPrices[tradeResource] || 10)).toLocaleString()})
                 </button>
                 <button
                   onClick={handleSell}
                   className="flex-1 py-2 rounded bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs uppercase"
                 >
-                  Sell
+                  {t('sell', lang)}
                 </button>
               </div>
             </div>

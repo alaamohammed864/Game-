@@ -85,7 +85,7 @@ export const EventModal: React.FC<EventModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className={`text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded border ${style.badge}`}>
-                  {event.severity} · {t('directives', lang)}
+                  {lang === 'ar' ? ({ BOOM: 'فرصة', CRISIS: 'أزمة', WARNING: 'تحذير', INFO: 'معلومة' }[event.severity]) : event.severity} · {t('directives', lang)}
                 </span>
                 {totalEvents > 1 && (
                   <span className="text-[10px] text-cyan-400 font-bold">
@@ -105,14 +105,14 @@ export const EventModal: React.FC<EventModalProps> = ({
                 <button
                   onClick={() => onChangeEventIndex((activeEventIndex - 1 + totalEvents) % totalEvents)}
                   className="p-1 text-slate-300 hover:text-white rounded"
-                  title="Previous Directive"
+                  title={lang === 'ar' ? 'التوجيه السابق' : 'Previous Directive'}
                 >
                   <ChevronLeft className="w-4 h-4 rtl:rotate-180" />
                 </button>
                 <button
                   onClick={() => onChangeEventIndex((activeEventIndex + 1) % totalEvents)}
                   className="p-1 text-slate-300 hover:text-white rounded"
-                  title="Next Directive"
+                  title={lang === 'ar' ? 'التوجيه التالي' : 'Next Directive'}
                 >
                   <ChevronRight className="w-4 h-4 rtl:rotate-180" />
                 </button>
@@ -124,7 +124,7 @@ export const EventModal: React.FC<EventModalProps> = ({
               onClick={onClose}
               className="p-2 text-slate-400 hover:text-white rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 transition-colors"
               title={t('decide_later', lang)}
-              aria-label="Close dialog"
+              aria-label={t('close', lang)}
             >
               <X className="w-4 h-4" />
             </button>
@@ -134,10 +134,10 @@ export const EventModal: React.FC<EventModalProps> = ({
         {/* Narrative Description & Context */}
         <div className="p-4 sm:p-5 overflow-y-auto space-y-3 flex-1">
           <h3 className="text-base sm:text-lg font-bold text-white tracking-wide leading-snug">
-            {event.titleKey}
+            {t(event.titleKey, lang)}
           </h3>
           <p className="text-xs sm:text-sm text-slate-300 leading-relaxed bg-slate-900/40 p-3 rounded-lg border border-slate-800/60">
-            {event.descKey}
+            {t(event.descKey, lang)}
           </p>
 
           <div className="pt-2">
@@ -164,7 +164,7 @@ export const EventModal: React.FC<EventModalProps> = ({
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-bold text-white text-xs sm:text-sm group-hover:text-cyan-300 flex items-center gap-1.5">
                       <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400 shrink-0 opacity-70 group-hover:opacity-100" />
-                      {opt.label}
+                    {t(opt.label, lang)}
                     </span>
                     <span className="text-[10px] text-cyan-400 font-bold uppercase whitespace-nowrap px-2 py-0.5 rounded bg-cyan-950/60 border border-cyan-800/60">
                       {t('execute_policy', lang)} →
@@ -172,7 +172,7 @@ export const EventModal: React.FC<EventModalProps> = ({
                   </div>
 
                   <p className="text-[11px] text-slate-300 leading-normal">
-                    {opt.description}
+                    {t(opt.description, lang)}
                   </p>
 
                   {(opt.cost || opt.reward || opt.stabilityDelta) && (
@@ -180,13 +180,13 @@ export const EventModal: React.FC<EventModalProps> = ({
                       {opt.cost && (
                         <span className="text-rose-400">
                           {lang === 'ar' ? 'التكلفة: ' : 'Cost: '}
-                          {Object.entries(opt.cost).map(([k, v]) => `${k} -${v}`).join(', ')}
+                          {Object.entries(opt.cost).map(([k, v]) => `${t(`res_${k}`, lang)} -${v}`).join(', ')}
                         </span>
                       )}
                       {opt.reward && (
                         <span className="text-emerald-400">
                           {lang === 'ar' ? 'العائد: ' : 'Reward: '}
-                          {Object.entries(opt.reward).map(([k, v]) => `${k} +${v}`).join(', ')}
+                          {Object.entries(opt.reward).map(([k, v]) => `${t(`res_${k}`, lang)} +${v}`).join(', ')}
                         </span>
                       )}
                       {opt.stabilityDelta && (

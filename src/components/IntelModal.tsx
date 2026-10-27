@@ -27,10 +27,10 @@ export const IntelModal: React.FC<IntelModalProps> = ({
             <Eye className="w-5 h-5 text-indigo-400" />
             <div>
               <h2 className="text-sm font-bold tracking-wider text-white uppercase">
-                {t('intelligence', lang)} · Foreign Signals & Recon Dossiers
+                {t('intelligence', lang)} · {t('intelligence_dossiers', lang)}
               </h2>
               <span className="text-xs text-slate-400">
-                Satellite telemetry, troop estimation bounds, and covert counter-intelligence
+                {t('intel_intro', lang)}
               </span>
             </div>
           </div>
@@ -44,9 +44,9 @@ export const IntelModal: React.FC<IntelModalProps> = ({
           {intelReports.length === 0 ? (
             <div className="p-8 text-center text-slate-400 space-y-2">
               <Satellite className="w-8 h-8 text-slate-600 mx-auto" />
-              <p className="text-sm font-bold text-slate-300">No Active Intelligence Dossiers</p>
+              <p className="text-sm font-bold text-slate-300">{t('no_intel', lang)}</p>
               <p className="text-xs text-slate-500 max-w-md mx-auto">
-                Select any foreign province on the strategic world map and commission a satellite recon mission to evaluate troop counts, fortifications, and invasion preparations.
+                {t('intel_empty_help', lang)}
               </p>
             </div>
           ) : (
@@ -69,7 +69,7 @@ export const IntelModal: React.FC<IntelModalProps> = ({
                     </div>
 
                     <div className="flex items-center gap-3 text-[11px]">
-                      <span>Turn Gathered: <strong className="text-white">{report.turnGathered}</strong></span>
+                      <span>{t('turn_gathered', lang)}: <strong className="text-white">{report.turnGathered}</strong></span>
                       <span className="px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-700/60 font-bold">
                         {t('confidence', lang)}: {report.confidence}%
                       </span>
@@ -86,9 +86,9 @@ export const IntelModal: React.FC<IntelModalProps> = ({
                     </div>
 
                     <div className="p-2 rounded bg-slate-950 border border-slate-800">
-                      <span className="text-[10px] text-slate-400 block">Estimated Air Wing</span>
+                      <span className="text-[10px] text-slate-400 block">{t('estimated_air_wing', lang)}</span>
                       <span className="text-indigo-400 font-bold">
-                        ~{report.estimatedAirpower.min} - {report.estimatedAirpower.max} aircraft
+                        ~{report.estimatedAirpower.min} - {report.estimatedAirpower.max} {t('aircraft', lang)}
                       </span>
                     </div>
 
@@ -99,7 +99,7 @@ export const IntelModal: React.FC<IntelModalProps> = ({
                         report.economicStrength === 'STABLE' ? 'text-cyan-400' :
                         report.economicStrength === 'STRUGGLING' ? 'text-amber-400' : 'text-rose-400'
                       }`}>
-                        {report.economicStrength}
+                        {lang === 'ar' ? ({ BOOMING: 'مزدهر', STABLE: 'مستقر', STRUGGLING: 'متراجع', CRITICAL: 'حرج' }[report.economicStrength] || report.economicStrength) : report.economicStrength}
                       </span>
                     </div>
                   </div>
@@ -117,8 +117,8 @@ export const IntelModal: React.FC<IntelModalProps> = ({
                         <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                       )}
                       <span>
-                        Hostile Incursion Status: <strong className="uppercase">
-                          {report.hostileIntentDetected ? 'Imminent Aggression Detected' : 'Perimeter Secure'}
+                        {t('hostile_incursion', lang)}: <strong className="uppercase">
+                          {report.hostileIntentDetected ? t('imminent_aggression', lang) : t('perimeter_secure', lang)}
                         </strong>
                       </span>
                     </div>
