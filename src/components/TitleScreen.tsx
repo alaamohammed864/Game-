@@ -109,9 +109,11 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   // Keyboard shortcut: Enter to start
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Enter') {
-        startGame();
-      }
+      if (e.repeat || (e.key !== 'Enter' && e.code !== 'Space')) return;
+      const target = e.target;
+      if (target instanceof HTMLElement && target.closest('button, input, select, textarea, a, [contenteditable="true"]')) return;
+      if (e.code === 'Space') e.preventDefault();
+      startGame();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -126,7 +128,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   const selectedNation = NATIONS[selectedCountryId] || nationList[0];
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950 flex flex-col justify-between p-4 sm:p-8 select-none overflow-y-auto military-grid font-mono">
+    <div lang={lang} dir={lang === 'ar' ? 'rtl' : 'ltr'} className="fixed inset-0 z-50 bg-slate-950 flex flex-col justify-between p-4 sm:p-8 select-none overflow-y-auto military-grid font-mono">
       {/* Background Ambience Scanlines */}
       <div className="absolute inset-0 scanlines opacity-50 pointer-events-none" />
 
@@ -135,16 +137,17 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         <div className="flex items-center gap-2 text-xs text-cyan-400">
           <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping inline-block" />
           <span className="tracking-widest font-bold">
-            {lang === 'ar' ? 'بروتوكول المحاكاة العسكرية v1.0' : 'MILITARY SIMULATION PROTOCOL VER 1.0'}
+            {t('title_protocol', lang)}
           </span>
         </div>
 
         <button
           onClick={onToggleLanguage}
+          aria-label={t('language_toggle', lang)}
           className="px-3 py-1.5 rounded bg-slate-900 border border-slate-700 text-xs text-slate-200 hover:text-white flex items-center gap-2 shadow"
         >
           <Globe className="w-3.5 h-3.5 text-cyan-400" />
-          <span className="font-bold">{lang === 'en' ? 'اللغة العربية (RTL)' : 'English (LTR)'}</span>
+          <span className="font-bold">{lang === 'en' ? t('language_arabic', lang) : t('language_english', lang)}</span>
         </button>
       </div>
 
@@ -153,7 +156,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         <div className="space-y-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/70 border border-cyan-800 text-cyan-400 text-xs tracking-wider mb-1">
             <Shield className="w-3.5 h-3.5" />
-            <span>{lang === 'ar' ? 'مسرح العمليات الجيوسياسية والعسكرية' : 'GLOBAL GEOPOLITICAL THEATRE'}</span>
+            <span>{t('global_theatre', lang)}</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-slate-100 via-cyan-200 to-sky-400 drop-shadow-[0_0_35px_rgba(56,189,248,0.3)]">
@@ -161,14 +164,14 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           </h1>
 
           <p className="text-xs sm:text-sm text-slate-400 max-w-xl mx-auto">
-            {t('game_subtitle', lang)} · {lang === 'ar' ? 'قُد الحرب والاقتصاد والبحوث والدبلوماسية والاستخبارات بين القوى العالمية.' : 'Command warfare, economy, research, diplomacy, and intelligence across sovereign nations.'}
+            {t('game_subtitle', lang)} · {t('title_campaign_intro', lang)}
           </p>
         </div>
 
         {/* Nation Selector */}
         <div className="w-full space-y-2.5">
           <span className="text-xs uppercase tracking-widest text-slate-300 block font-bold">
-            {lang === 'ar' ? 'اختر الدولة ذات السيادة التي ستقودها:' : 'Select Sovereign State to Command:'}
+            {t('select_country', lang)}
           </span>
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
             {nationList.map(nation => {
@@ -186,6 +189,8 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
                       : 'bg-slate-950/70 border-slate-800/80 hover:bg-slate-900/60'
                   }`}
                   style={{ borderColor: isSelected ? nation.color : undefined }}
+                  aria-pressed={isSelected}
+                  aria-label={`${nation.name[lang]} — ${nation.archetype[lang]}`}
                 >
                   <span
                     className="w-4 h-4 rounded-full mb-1.5 shadow-sm"
@@ -204,7 +209,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
 
           {/* Selected Nation Dossier Card */}
           <div 
-            className="p-3.5 rounded-lg bg-slate-900/90 border text-left max-w-xl mx-auto text-xs space-y-1 shadow-md"
+            className="p-3.5 rounded-lg bg-slate-900/90 border text-left rtl:text-right max-w-xl mx-auto text-xs space-y-1 shadow-md"
             style={{ borderLeft: `4px solid ${selectedNation.color}` }}
           >
             <div className="flex items-center justify-between">
@@ -219,13 +224,14 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         <div className="flex flex-wrap items-center justify-center gap-3 text-xs">
           <div className="flex flex-col sm:flex-row items-center gap-1.5 bg-slate-900 p-1.5 rounded-lg border border-slate-800 w-full sm:w-auto">
             <span className="text-slate-400 text-[11px] px-2 font-bold shrink-0">
-              {lang === 'ar' ? 'ذكاء العدو:' : 'AI DOCTRINE:'}
+              {t('ai_doctrine', lang)}
             </span>
             <div className="flex flex-wrap items-center justify-center gap-1 w-full sm:w-auto">
               {(['EASY', 'NORMAL', 'HARD', 'EXPERT', 'GRAND_STRATEGIST'] as const).map(diff => (
                 <button
                   key={diff}
                   onClick={() => setSelectedDifficulty(diff)}
+                  aria-pressed={selectedDifficulty === diff}
                   className={`px-2.5 py-1.5 sm:py-1 rounded text-[11px] font-bold transition-colors ${
                     selectedDifficulty === diff ? 'bg-cyan-600 text-white shadow' : 'text-slate-400 hover:text-white bg-slate-950/40'
                   }`}
@@ -244,7 +250,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
               className="accent-amber-500 rounded"
             />
             <span className="text-amber-300 font-bold text-xs">
-              {lang === 'ar' ? 'وضع البيئة التجريبية (ذهب وموارد غير محدودة)' : 'Sandbox Mode (Unlimited Gold & Dev Tools)'}
+              {t('sandbox_mode', lang)}
             </span>
           </label>
         </div>
@@ -255,21 +261,19 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           className="group relative px-10 py-3.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-sm sm:text-base uppercase tracking-widest shadow-[0_0_35px_rgba(6,182,212,0.4)] transition-all flex items-center gap-3 active:scale-95"
         >
           <Play className="w-5 h-5 fill-current" />
-          <span>{lang === 'ar' ? 'بدء قيادة المعركة والحملة' : 'INITIALIZE SUPREME COMMAND'}</span>
+          <span>{t('initialize_command', lang)}</span>
         </button>
 
         {/* Control Hints Line */}
         <div className="text-[11px] text-slate-400 tracking-wider">
-          {lang === 'ar' 
-            ? 'اضغط Enter للبدء · انقر على أي إقليم للتفتيش · اسحب لتدوير الكرة الأرضية · Ctrl+Shift+D لوحدة تحكم المطور' 
-            : 'Enter or Space to Start · Click Province to Inspect · Drag to Rotate Globe · Ctrl+Shift+D for Dev Console'}
+          {t('title_keyboard_hints', lang)}
         </div>
       </div>
 
       {/* Footer Info */}
       <div className="relative z-10 flex items-center justify-between text-[10px] text-slate-500 border-t border-slate-900 pt-2">
-        <span>{lang === 'ar' ? 'القيادة العالمية: عصر الاستراتيجية · محرك ثلاثي الأبعاد' : 'GLOBAL COMMAND ARCHITECTURE · REACT + THREE.JS + TAILWIND V4'}</span>
-        <span>{lang === 'ar' ? 'نظام ذكاء اصطناعي ذاتي متعدد الوكلاء' : 'AUTONOMOUS MULTI-AGENT STATE ENGINE'}</span>
+        <span>{t('title_footer_architecture', lang)}</span>
+        <span>{t('title_footer_ai', lang)}</span>
       </div>
     </div>
   );
