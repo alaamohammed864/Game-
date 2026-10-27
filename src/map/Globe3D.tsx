@@ -49,7 +49,7 @@ export const Globe3D: React.FC<Globe3DProps> = ({
   const unitsGroupRef = useRef<THREE.Group | null>(null);
   const unitSimulationRef = useRef<UnitSimulation>(new UnitSimulation());
   const pulsingMeshesRef = useRef<PulsingMeshItem[]>([]);
-  const combatProjectilesRef = useRef<Array<{ mesh: THREE.Group; trail: THREE.Mesh; start: THREE.Vector3; end: THREE.Vector3; age: number; duration: number; launchedAt: number }>>([]);
+  const combatProjectilesRef = useRef<Array<{ mesh: THREE.Group; trail: THREE.Mesh; start: THREE.Vector3; control: THREE.Vector3; end: THREE.Vector3; age: number; duration: number; launchedAt: number }>>([]);
   const combatEffectsRef = useRef<THREE.Group | null>(null);
   const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster());
   const mouseRef = useRef<THREE.Vector2>(new THREE.Vector2());
@@ -307,13 +307,18 @@ export const Globe3D: React.FC<Globe3DProps> = ({
       sim.update(dt);
 
       for (const projectile of combatProjectilesRef.current) {
-        if (!sim.paused) projectile.age = Math.max(0, (Date.now() - projectile.launchedAt) / 1000);
+        if (!sim.paused) projectile.age += dt;
         const progress = Math.min(1, Math.max(0, projectile.age / projectile.duration));
-        const position = projectile.start.clone().lerp(projectile.end, progress);
-        position.normalize().multiplyScalar(1.02 + Math.sin(progress * Math.PI) * 0.12);
+        const inverse = 1 - progress;
+        const position = projectile.start.clone().multiplyScalar(inverse * inverse)
+          .addScaledVector(projectile.control, 2 * inverse * progress)
+          .addScaledVector(projectile.end, progress * progress);
+        const direction = projectile.control.clone().sub(projectile.start).multiplyScalar(2 * inverse)
+          .add(projectile.end.clone().sub(projectile.control).multiplyScalar(2 * progress)).normalize();
+        position.normalize().multiplyScalar(1.02 + Math.sin(progress * Math.PI) * 0.2);
         projectile.mesh.position.copy(position);
-        projectile.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), projectile.end.clone().sub(projectile.start).normalize());
-        projectile.trail.position.copy(position);
+        projectile.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+        projectile.trail.position.copy(position).addScaledVector(direction, -0.075);
         projectile.trail.quaternion.copy(projectile.mesh.quaternion);
         const flash = projectile.mesh.userData.impact as THREE.Mesh | undefined;
         if (flash) {
@@ -695,6 +700,7 @@ export const Globe3D: React.FC<Globe3DProps> = ({
         const approach = latLngToVector3(targetProvince.lat + 3.4, targetProvince.lng - 4.2, 1.01).sub(target).normalize();
         const start = target.clone().add(approach.multiplyScalar(0.25));
         const end = strike.outcome === 'INTERCEPTED' ? start.clone().lerp(target, 0.62) : target;
+        const control = start.clone().add(end).normalize().multiplyScalar(1.28);
         const tint = strike.outcome === 'INTERCEPTED' ? 0x38bdf8 : 0xff9d45;
         const missile = new THREE.Group();
         const shell = new THREE.Mesh(
@@ -723,7 +729,7 @@ export const Globe3D: React.FC<Globe3DProps> = ({
         blastRing.position.copy(end);
         blastRing.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), end.clone().normalize());
         combatEffects.add(blastRing);
-        combatProjectilesRef.current.push({ mesh: missile, trail, start, end, age: 0, duration: 2.8, launchedAt: strike.launchedAt });
+        combatProjectilesRef.current.push({ mesh: missile, trail, start, control, end, age: Math.max(0, (Date.now() - strike.launchedAt) / 1000), duration: 2.8, launchedAt: strike.launchedAt });
       });
     }
 
