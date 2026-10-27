@@ -323,6 +323,14 @@ export interface BattleReport {
   survivingAttackerUnits?: UnitGroup[];
 }
 
+export interface MissileStrikeRecord {
+  id: string;
+  targetProvinceId: string;
+  turn: number;
+  outcome: 'HIT' | 'INTERCEPTED';
+  launchedAt: number;
+}
+
 export interface Mission {
   id: string;
   titleKey: string;
@@ -414,6 +422,7 @@ export interface GameState {
   constructionQueue: ConstructionQueueItem[];
   militaryQueue: MilitaryQueueItem[];
   recentBattles: BattleReport[];
+  missileStrikes: MissileStrikeRecord[];
   notifications: GameNotification[];
   activeEvents: GameEvent[];
   missions: Mission[];

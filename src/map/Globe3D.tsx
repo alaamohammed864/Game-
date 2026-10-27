@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { createEarthTexture, createBorderLines } from './realWorld';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { BattleReport, Country, Province } from '../types';
+import { BattleReport, Country, MissileStrikeRecord, Province } from '../types';
 import { evaluateProvinceUnitState, ProvinceUnitState } from '../utils/unitState';
 import { UnitSimulation } from '../simulation/UnitSimulation';
 import { createVehicleMesh, createShipMesh, createAircraftMesh } from '../simulation/unitMeshFactory';
@@ -15,6 +15,7 @@ interface Globe3DProps {
   playerCountryId: string;
   isPaused: boolean;
   recentBattles?: BattleReport[];
+  missileStrikes?: MissileStrikeRecord[];
   currentTurn?: number;
 }
 
@@ -36,6 +37,7 @@ export const Globe3D: React.FC<Globe3DProps> = ({
   playerCountryId,
   isPaused,
   recentBattles = [],
+  missileStrikes = [],
   currentTurn = 1
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -47,7 +49,7 @@ export const Globe3D: React.FC<Globe3DProps> = ({
   const unitsGroupRef = useRef<THREE.Group | null>(null);
   const unitSimulationRef = useRef<UnitSimulation>(new UnitSimulation());
   const pulsingMeshesRef = useRef<PulsingMeshItem[]>([]);
-  const combatProjectilesRef = useRef<Array<{ mesh: THREE.Group; trail: THREE.Mesh; start: THREE.Vector3; end: THREE.Vector3; age: number; duration: number }>>([]);
+  const combatProjectilesRef = useRef<Array<{ mesh: THREE.Group; trail: THREE.Mesh; start: THREE.Vector3; end: THREE.Vector3; age: number; duration: number; launchedAt: number }>>([]);
   const combatEffectsRef = useRef<THREE.Group | null>(null);
   const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster());
   const mouseRef = useRef<THREE.Vector2>(new THREE.Vector2());
@@ -305,7 +307,7 @@ export const Globe3D: React.FC<Globe3DProps> = ({
       sim.update(dt);
 
       for (const projectile of combatProjectilesRef.current) {
-        if (!sim.paused) projectile.age += dt;
+        if (!sim.paused) projectile.age = Math.max(0, (Date.now() - projectile.launchedAt) / 1000);
         const progress = Math.min(1, Math.max(0, projectile.age / projectile.duration));
         const position = projectile.start.clone().lerp(projectile.end, progress);
         position.normalize().multiplyScalar(1.02 + Math.sin(progress * Math.PI) * 0.12);
@@ -686,16 +688,18 @@ export const Globe3D: React.FC<Globe3DProps> = ({
       });
       combatEffects.clear();
       combatProjectilesRef.current = [];
-      recentBattles.slice(0, 4).forEach((battle, battleIndex) => {
-        const targetProvince = provinces[battle.provinceId];
+      missileStrikes.filter(strike => Date.now() - strike.launchedAt < 5000).slice(-4).forEach((strike) => {
+        const targetProvince = provinces[strike.targetProvinceId];
         if (!targetProvince) return;
-        const end = latLngToVector3(targetProvince.lat, targetProvince.lng, 1.01);
-        const approach = latLngToVector3(targetProvince.lat + 3.4, targetProvince.lng - 4.2, 1.01).sub(end).normalize();
-        const start = end.clone().add(approach.multiplyScalar(0.25));
+        const target = latLngToVector3(targetProvince.lat, targetProvince.lng, 1.01);
+        const approach = latLngToVector3(targetProvince.lat + 3.4, targetProvince.lng - 4.2, 1.01).sub(target).normalize();
+        const start = target.clone().add(approach.multiplyScalar(0.25));
+        const end = strike.outcome === 'INTERCEPTED' ? start.clone().lerp(target, 0.62) : target;
+        const tint = strike.outcome === 'INTERCEPTED' ? 0x38bdf8 : 0xff9d45;
         const missile = new THREE.Group();
         const shell = new THREE.Mesh(
           new THREE.ConeGeometry(0.008, 0.045, 8),
-          new THREE.MeshStandardMaterial({ color: 0xffd166, emissive: 0xff5e36, emissiveIntensity: 2.2, metalness: 0.45, roughness: 0.25 })
+          new THREE.MeshStandardMaterial({ color: tint, emissive: tint, emissiveIntensity: 1.8, metalness: 0.45, roughness: 0.25 })
         );
         missile.add(shell);
         const impactFlash = new THREE.Mesh(
@@ -708,7 +712,7 @@ export const Globe3D: React.FC<Globe3DProps> = ({
 
         const trail = new THREE.Mesh(
           new THREE.CylinderGeometry(0.0015, 0.004, 0.13, 6),
-          new THREE.MeshBasicMaterial({ color: 0xff8a42, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false })
+          new THREE.MeshBasicMaterial({ color: tint, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false })
         );
         combatEffects.add(trail);
 
@@ -719,7 +723,7 @@ export const Globe3D: React.FC<Globe3DProps> = ({
         blastRing.position.copy(end);
         blastRing.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), end.clone().normalize());
         combatEffects.add(blastRing);
-        combatProjectilesRef.current.push({ mesh: missile, trail, start, end, age: -battleIndex * 0.75, duration: 2.8 });
+        combatProjectilesRef.current.push({ mesh: missile, trail, start, end, age: 0, duration: 2.8, launchedAt: strike.launchedAt });
       });
     }
 
@@ -822,7 +826,7 @@ export const Globe3D: React.FC<Globe3DProps> = ({
         });
       }
     });
-  }, [provinces, countries, selectedProvinceId, recentBattles, currentTurn]);
+  }, [provinces, countries, selectedProvinceId, recentBattles, missileStrikes, currentTurn]);
 
   // Synchronize Simulation Pause/Resume with Game Clock
   useEffect(() => {

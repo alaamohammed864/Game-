@@ -7,6 +7,7 @@ import {
   UnitType, 
   UnitGroup, 
   BattleReport, 
+  MissileStrikeRecord,
   DiplomaticStatus,
   DiplomaticProposal,
   AIDifficulty
@@ -93,6 +94,7 @@ class GameStore {
       constructionQueue: [],
       militaryQueue: [],
       recentBattles: [],
+      missileStrikes: [],
       notifications: [
         {
           id: 'init_welcome',
@@ -117,6 +119,7 @@ class GameStore {
   }
 
   public loadSavedState(loadedState: GameState) {
+    loadedState.missileStrikes ??= [];
     // Fill in anything an older save may lack so the rest of the engine can rely on it
     loadedState.unlimitedGoldDev ??= false;
     loadedState.unlimitedResourcesDev ??= false;
@@ -141,7 +144,6 @@ class GameStore {
       c.currentResearch ??= null;
       c.ballisticMissiles ??= 0;
     });
-
     // Harmonize bilateral diplomacy
     const countryList = Object.values(loadedState.countries);
     for (let i = 0; i < countryList.length; i++) {
@@ -1149,6 +1151,16 @@ class GameStore {
       return { success: false, intercepted: false, damageDealt: 0, message: 'Cannot strike your own territory.' };
     }
 
+    const targetCountry = s.countries[targetProv.countryId];
+    if (!targetCountry || !targetCountry.isAlive || targetCountry.id === player.id) {
+      return { success: false, intercepted: false, damageDealt: 0, message: 'A strike must target a living foreign nation.' };
+    }
+
+    const relation = player.relations[targetCountry.id];
+    if (relation?.status !== 'WAR') {
+      return { success: false, intercepted: false, damageDealt: 0, message: 'A formal state of war is required before launching a strike.' };
+    }
+
     if ((player.ballisticMissiles || 0) <= 0 && (!s.isDevMode || !s.unlimitedResourcesDev)) {
       return { success: false, intercepted: false, damageDealt: 0, message: 'No armed ballistic missiles remaining in sovereign silos.' };
     }
@@ -1163,6 +1175,15 @@ class GameStore {
     const interceptChance = (hasAirDefense ? 0.35 : 0.05) + (hasRadar ? 0.15 : 0);
 
     const isIntercepted = Math.random() < interceptChance;
+
+    const strikeRecord: MissileStrikeRecord = {
+      id: `strike_${s.currentTurn}_${Date.now()}`,
+      targetProvinceId,
+      turn: s.currentTurn,
+      outcome: isIntercepted ? 'INTERCEPTED' : 'HIT',
+      launchedAt: Date.now()
+    };
+    s.missileStrikes = [...s.missileStrikes.slice(-7), strikeRecord];
 
     if (isIntercepted) {
       sound.playAlertSiren();
@@ -1196,12 +1217,6 @@ class GameStore {
       unitsEliminated += lost;
     });
     targetProv.units = targetProv.units.filter(u => u.count > 0);
-
-    const targetCountry = s.countries[targetProv.countryId];
-    if (targetCountry) {
-      this.registerTreatyBetrayal(player, targetCountry);
-      setBilateralDiplomaticStatus(player, targetCountry, 'WAR', -50, s.currentTurn);
-    }
 
     s.notifications.unshift({
       id: `strike_hit_${Date.now()}`,

@@ -232,6 +232,7 @@ export default function App() {
               playerCountryId={gameState.playerCountryId}
               isPaused={gameState.isPaused}
               recentBattles={gameState.recentBattles}
+              missileStrikes={gameState.missileStrikes}
               currentTurn={gameState.currentTurn}
             />
             </Suspense>

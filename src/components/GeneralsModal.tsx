@@ -42,7 +42,10 @@ export const GeneralsModal: React.FC<GeneralsModalProps> = ({
   const [missileLog, setMissileLog] = useState<{ text: string; success: boolean } | null>(null);
 
   const ownedProvinces = Object.values(provinces).filter(p => p.countryId === player.id);
-  const foreignProvinces = Object.values(provinces).filter(p => p.countryId !== player.id);
+  const foreignProvinces = Object.values(provinces).filter(p => {
+    return p.countryId !== player.id && player.relations[p.countryId]?.status === 'WAR';
+  });
+  const canLaunchStrike = foreignProvinces.length > 0 && (player.ballisticMissiles || 0) > 0;
 
   const getGeneralIcon = (spec: General['specialization']) => {
     switch (spec) {
@@ -58,8 +61,11 @@ export const GeneralsModal: React.FC<GeneralsModalProps> = ({
   };
 
   const handleLaunchStrike = () => {
-    if (!selectedTargetProvinceId) return;
-    const res = onLaunchBallisticMissile(selectedTargetProvinceId);
+    const targetId = foreignProvinces.some(p => p.id === selectedTargetProvinceId)
+      ? selectedTargetProvinceId
+      : foreignProvinces[0]?.id;
+    if (!targetId) return;
+    const res = onLaunchBallisticMissile(targetId);
     setMissileLog({ text: res.message, success: res.success });
   };
 
@@ -121,6 +127,9 @@ export const GeneralsModal: React.FC<GeneralsModalProps> = ({
                 onChange={(e) => setSelectedTargetProvinceId(e.target.value)}
                 className="flex-1 w-full bg-slate-950 border border-slate-700 text-white rounded p-2 text-xs font-mono"
               >
+                {foreignProvinces.length === 0 && (
+                  <option value="">{lang === 'ar' ? 'لا توجد أهداف معادية؛ أعلن الحرب أولاً' : 'No hostile targets; declare war first'}</option>
+                )}
                 {foreignProvinces.map(p => (
                   <option key={p.id} value={p.id}>
                     {p.name} ({p.units.reduce((s, u) => s + u.count, 0)} units · Tier {p.defenseLevel} Fort)
@@ -129,7 +138,7 @@ export const GeneralsModal: React.FC<GeneralsModalProps> = ({
               </select>
 
               <button
-                disabled={(player.ballisticMissiles || 0) <= 0}
+                disabled={!canLaunchStrike}
                 onClick={handleLaunchStrike}
                 className="w-full sm:w-auto px-5 py-2 rounded bg-red-600 hover:bg-red-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg"
               >
