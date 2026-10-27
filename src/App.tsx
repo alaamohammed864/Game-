@@ -223,7 +223,7 @@ export default function App() {
         {/* Central Viewport (3D Orbital Globe or 2D Theatre Command) */}
         <main className="flex-1 h-full relative overflow-hidden bg-slate-950">
           {viewMode === '3D' ? (
-            <Suspense fallback={<div className="w-full h-full flex items-center justify-center text-cyan-400 font-mono text-xs animate-pulse">LOADING ORBITAL GLOBE…</div>}>
+            <Suspense fallback={<div className="w-full h-full flex items-center justify-center text-cyan-400 font-mono text-xs animate-pulse">{t('loading_globe', lang)}</div>}>
             <Globe3D
               provinces={gameState.provinces}
               countries={gameState.countries}
@@ -234,6 +234,7 @@ export default function App() {
               recentBattles={gameState.recentBattles}
               missileStrikes={gameState.missileStrikes}
               currentTurn={gameState.currentTurn}
+              lang={lang}
             />
             </Suspense>
           ) : (
@@ -245,6 +246,7 @@ export default function App() {
               playerCountryId={gameState.playerCountryId}
               recentBattles={gameState.recentBattles}
               currentTurn={gameState.currentTurn}
+              lang={lang}
             />
           )}
 

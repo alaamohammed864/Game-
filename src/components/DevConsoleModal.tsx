@@ -271,7 +271,7 @@ export const DevConsoleModal: React.FC<DevConsoleModalProps> = ({
                 className="px-4 py-1.5 rounded bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs uppercase flex items-center justify-center gap-1.5"
               >
                 <Swords className="w-4 h-4" />
-                <span>Deploy Corps</span>
+                <span>{t('spawn_strike_corps', lang)}</span>
               </button>
             </div>
           </div>

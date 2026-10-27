@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { BattleReport, Country, Province } from '../types';
 import { Shield, Anchor, Plane, Star, Crosshair, Users, Flame, Droplet, AlertTriangle, Sparkles } from 'lucide-react';
 import { evaluateProvinceUnitState, ProvinceUnitState } from '../utils/unitState';
+import { Language, t } from '../utils/localization';
 
 interface Tactical2DMapProps {
   provinces: Record<string, Province>;
@@ -11,6 +12,7 @@ interface Tactical2DMapProps {
   playerCountryId: string;
   recentBattles?: BattleReport[];
   currentTurn?: number;
+  lang: Language;
 }
 
 export const Tactical2DMap: React.FC<Tactical2DMapProps> = ({
@@ -20,7 +22,8 @@ export const Tactical2DMap: React.FC<Tactical2DMapProps> = ({
   onSelectProvince,
   playerCountryId,
   recentBattles = [],
-  currentTurn = 1
+  currentTurn = 1,
+  lang
 }) => {
   const [zoom, setZoom] = useState<number>(1);
   const [hoveredProvinceId, setHoveredProvinceId] = useState<string | null>(null);
@@ -63,28 +66,28 @@ export const Tactical2DMap: React.FC<Tactical2DMapProps> = ({
       <div className="absolute top-4 left-4 z-10 flex flex-col gap-1 text-[11px] font-mono text-emerald-400/90 bg-slate-900/80 p-2.5 rounded border border-emerald-900/50 backdrop-blur-sm shadow-lg">
         <div className="flex items-center gap-2">
           <Crosshair className="w-4 h-4 text-emerald-400" />
-          <span className="font-bold text-white tracking-wider">THEATRE COMMAND 2D GRID</span>
+          <span className="font-bold text-white tracking-wider">{t('map_2d_title', lang)}</span>
         </div>
-        <div className="text-slate-400">PROJECTION: MERCATOR TACTICAL FLATTENED</div>
-        <div className="text-cyan-400 text-[10px]">RADAR STATUS: ACTIVE SITUATIONAL TELEMETRY</div>
+        <div className="text-slate-400">{t('map_2d_projection', lang)}</div>
+        <div className="text-cyan-400 text-[10px]">{t('map_radar_status', lang)}</div>
         <div className="flex gap-2 mt-1">
           <button 
             onClick={() => setZoom(z => Math.min(1.6, z + 0.15))}
             className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-white rounded text-xs"
           >
-            + ZOOM
+            {t('zoom_in', lang)}
           </button>
           <button 
             onClick={() => setZoom(z => Math.max(0.7, z - 0.15))}
             className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-white rounded text-xs"
           >
-            - ZOOM
+            {t('zoom_out', lang)}
           </button>
           <button 
             onClick={() => setZoom(1)}
             className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-white rounded text-xs"
           >
-            RESET
+            {t('reset_view', lang)}
           </button>
         </div>
       </div>
@@ -319,22 +322,22 @@ export const Tactical2DMap: React.FC<Tactical2DMapProps> = ({
 
       {/* Situational Awareness Radar Legend */}
       <div className="absolute bottom-4 left-4 z-10 flex flex-wrap items-center gap-3 text-[11px] font-mono bg-slate-900/95 p-2.5 rounded border border-slate-800 backdrop-blur-sm shadow-xl max-w-xl">
-        <span className="text-slate-400 font-bold uppercase mr-1">Unit Telemetry:</span>
+        <span className="text-slate-400 font-bold uppercase mr-1">{t('unit_telemetry', lang)}:</span>
         <div className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse inline-block" />
-          <span className="text-red-300 font-semibold">Under Fire / Skirmish</span>
+          <span className="text-red-300 font-semibold">{t('unit_under_fire', lang)}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" />
-          <span className="text-amber-300 font-semibold">Low Fuel / Depleted</span>
+          <span className="text-amber-300 font-semibold">{t('unit_low_fuel', lang)}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-yellow-400 inline-block" />
-          <span className="text-yellow-300 font-semibold">General Commanded</span>
+          <span className="text-yellow-300 font-semibold">{t('unit_general_commanded', lang)}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block" />
-          <span className="text-cyan-300 font-semibold">Entrenched Fort</span>
+          <span className="text-cyan-300 font-semibold">{t('unit_fortified', lang)}</span>
         </div>
       </div>
     </div>

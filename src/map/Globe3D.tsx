@@ -7,6 +7,7 @@ import { BattleReport, Country, MissileStrikeRecord, Province } from '../types';
 import { evaluateProvinceUnitState, ProvinceUnitState } from '../utils/unitState';
 import { UnitSimulation } from '../simulation/UnitSimulation';
 import { createVehicleMesh, createShipMesh, createAircraftMesh } from '../simulation/unitMeshFactory';
+import { Language, t } from '../utils/localization';
 
 type UnitModelKind = 'tank' | 'ship' | 'aircraft';
 type UnitModelTemplates = Partial<Record<UnitModelKind, THREE.Group>>;
@@ -86,6 +87,7 @@ interface Globe3DProps {
   recentBattles?: BattleReport[];
   missileStrikes?: MissileStrikeRecord[];
   currentTurn?: number;
+  lang: Language;
 }
 
 interface PulsingMeshItem {
@@ -107,7 +109,8 @@ export const Globe3D: React.FC<Globe3DProps> = ({
   isPaused,
   recentBattles = [],
   missileStrikes = [],
-  currentTurn = 1
+  currentTurn = 1,
+  lang
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const unitModelTemplatesRef = useRef<UnitModelTemplates>({});
@@ -992,32 +995,32 @@ export const Globe3D: React.FC<Globe3DProps> = ({
       <div className="absolute top-4 left-4 z-10 pointer-events-none flex flex-col gap-1 text-[11px] font-mono text-cyan-400/80 bg-slate-950/70 p-2.5 rounded border border-cyan-900/40 backdrop-blur-sm">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping inline-block" />
-          <span className="font-bold text-white tracking-wider">TACTICAL ORBITAL GLOBE</span>
+          <span className="font-bold text-white tracking-wider">{t('map_3d_title', lang)}</span>
         </div>
-        <div className="text-slate-400">PROJECTION: SPHERICAL 3D GEO-DATUM</div>
-        <div className="text-slate-400">CONTROL: DRAG TO ROTATE · SCROLL ZOOM</div>
+        <div className="text-slate-400">{t('map_3d_projection', lang)}</div>
+        <div className="text-slate-400">{t('map_controls', lang)}</div>
       </div>
 
       {/* Situational Awareness Visual Telemetry Legend */}
       <div className="absolute bottom-4 left-4 z-10 pointer-events-none bg-slate-950/85 p-2.5 rounded border border-slate-800/80 text-[10px] font-mono backdrop-blur-md flex flex-col gap-1.5 shadow-xl text-slate-300">
         <div className="text-cyan-400 font-bold uppercase tracking-wider text-[9px] border-b border-slate-800 pb-0.5">
-          Situational Unit Telemetry
+          {t('unit_telemetry', lang)}
         </div>
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-red-500 animate-ping inline-block" />
-          <span className="text-red-400 font-bold">[FIRE]</span> Under Fire / Frontline Clashes
+          <span className="text-red-400 font-bold">[{t('unit_fire_badge', lang)}]</span> {t('unit_under_fire_3d', lang)}
         </div>
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse inline-block" />
-          <span className="text-amber-400 font-bold">[FUEL]</span> Low Fuel Reserves (&lt;100 bbl)
+          <span className="text-amber-400 font-bold">[{t('unit_fuel_badge', lang)}]</span> {t('unit_low_fuel_3d', lang)}
         </div>
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-yellow-400 inline-block shadow-[0_0_8px_rgba(250,204,21,0.8)]" />
-          <span className="text-yellow-400 font-bold">[GEN]</span> Commanded by 5-Star General
+          <span className="text-yellow-400 font-bold">[{t('unit_general_badge', lang)}]</span> {t('unit_general_commanded_3d', lang)}
         </div>
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-sm bg-cyan-500 inline-block" />
-          <span className="text-cyan-400 font-bold">[FORT]</span> Entrenched Fortification
+          <span className="text-cyan-400 font-bold">[{t('unit_fort_badge', lang)}]</span> {t('unit_fortified', lang)}
         </div>
       </div>
     </div>
