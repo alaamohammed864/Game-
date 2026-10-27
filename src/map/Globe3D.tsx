@@ -47,6 +47,8 @@ export const Globe3D: React.FC<Globe3DProps> = ({
   const unitsGroupRef = useRef<THREE.Group | null>(null);
   const unitSimulationRef = useRef<UnitSimulation>(new UnitSimulation());
   const pulsingMeshesRef = useRef<PulsingMeshItem[]>([]);
+  const combatProjectilesRef = useRef<Array<{ mesh: THREE.Group; trail: THREE.Mesh; start: THREE.Vector3; end: THREE.Vector3; age: number; duration: number }>>([]);
+  const combatEffectsRef = useRef<THREE.Group | null>(null);
   const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster());
   const mouseRef = useRef<THREE.Vector2>(new THREE.Vector2());
   const isDraggingRef = useRef<boolean>(false);
@@ -171,6 +173,10 @@ export const Globe3D: React.FC<Globe3DProps> = ({
     const unitsGroup = new THREE.Group();
     globeGroup.add(unitsGroup);
     unitsGroupRef.current = unitsGroup;
+
+    const combatEffects = new THREE.Group();
+    globeGroup.add(combatEffects);
+    combatEffectsRef.current = combatEffects;
 
     // Mouse drag handlers
     const onMouseDown = (e: MouseEvent) => {
@@ -298,6 +304,23 @@ export const Globe3D: React.FC<Globe3DProps> = ({
       const sim = unitSimulationRef.current;
       sim.update(dt);
 
+      for (const projectile of combatProjectilesRef.current) {
+        if (!sim.paused) projectile.age += dt;
+        const progress = Math.min(1, Math.max(0, projectile.age / projectile.duration));
+        const position = projectile.start.clone().lerp(projectile.end, progress);
+        position.normalize().multiplyScalar(1.02 + Math.sin(progress * Math.PI) * 0.12);
+        projectile.mesh.position.copy(position);
+        projectile.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), projectile.end.clone().sub(projectile.start).normalize());
+        projectile.trail.position.copy(position);
+        projectile.trail.quaternion.copy(projectile.mesh.quaternion);
+        const flash = projectile.mesh.userData.impact as THREE.Mesh | undefined;
+        if (flash) {
+          const pulse = progress < 0.82 || progress >= 1 ? 0 : Math.sin((progress - 0.82) / 0.18 * Math.PI);
+          flash.scale.setScalar(0.15 + pulse * 2.4);
+          (flash.material as THREE.MeshBasicMaterial).opacity = pulse * 0.8;
+        }
+      }
+
       // Loop completed routes so units patrol continuously
       for (const unit of sim.units.values()) {
         if (unit.reachedDestination && unit.route && unit.route.length > 1) {
@@ -350,6 +373,18 @@ export const Globe3D: React.FC<Globe3DProps> = ({
             }
           }
         });
+      }
+      if (combatEffectsRef.current) {
+        combatEffectsRef.current.traverse(child => {
+          const mesh = child as THREE.Mesh;
+          if (!mesh.isMesh) return;
+          mesh.geometry.dispose();
+          if (Array.isArray(mesh.material)) mesh.material.forEach(material => material.dispose());
+          else mesh.material.dispose();
+        });
+        combatEffectsRef.current.clear();
+        combatEffectsRef.current = null;
+        combatProjectilesRef.current = [];
       }
       renderer.dispose();
       sphereGeo.dispose();
@@ -639,6 +674,54 @@ export const Globe3D: React.FC<Globe3DProps> = ({
     }
     const sim = unitSimulationRef.current;
     sim.units.clear();
+
+    const combatEffects = combatEffectsRef.current;
+    if (combatEffects) {
+      combatEffects.traverse(child => {
+        const mesh = child as THREE.Mesh;
+        if (!mesh.isMesh) return;
+        mesh.geometry.dispose();
+        if (Array.isArray(mesh.material)) mesh.material.forEach(material => material.dispose());
+        else mesh.material.dispose();
+      });
+      combatEffects.clear();
+      combatProjectilesRef.current = [];
+      recentBattles.slice(0, 4).forEach((battle, battleIndex) => {
+        const targetProvince = provinces[battle.provinceId];
+        if (!targetProvince) return;
+        const end = latLngToVector3(targetProvince.lat, targetProvince.lng, 1.01);
+        const approach = latLngToVector3(targetProvince.lat + 3.4, targetProvince.lng - 4.2, 1.01).sub(end).normalize();
+        const start = end.clone().add(approach.multiplyScalar(0.25));
+        const missile = new THREE.Group();
+        const shell = new THREE.Mesh(
+          new THREE.ConeGeometry(0.008, 0.045, 8),
+          new THREE.MeshStandardMaterial({ color: 0xffd166, emissive: 0xff5e36, emissiveIntensity: 2.2, metalness: 0.45, roughness: 0.25 })
+        );
+        missile.add(shell);
+        const impactFlash = new THREE.Mesh(
+          new THREE.SphereGeometry(0.018, 12, 12),
+          new THREE.MeshBasicMaterial({ color: 0xff7a36, transparent: true, opacity: 0 })
+        );
+        missile.add(impactFlash);
+        missile.userData.impact = impactFlash;
+        combatEffects.add(missile);
+
+        const trail = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.0015, 0.004, 0.13, 6),
+          new THREE.MeshBasicMaterial({ color: 0xff8a42, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false })
+        );
+        combatEffects.add(trail);
+
+        const blastRing = new THREE.Mesh(
+          new THREE.TorusGeometry(0.038, 0.0025, 6, 36),
+          new THREE.MeshBasicMaterial({ color: 0xff513d, transparent: true, opacity: 0.75 })
+        );
+        blastRing.position.copy(end);
+        blastRing.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), end.clone().normalize());
+        combatEffects.add(blastRing);
+        combatProjectilesRef.current.push({ mesh: missile, trail, start, end, age: -battleIndex * 0.75, duration: 2.8 });
+      });
+    }
 
     Object.values(provinces).forEach(prov => {
       const country = countries[prov.countryId];
