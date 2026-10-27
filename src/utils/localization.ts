@@ -123,6 +123,11 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     quick_menu: 'Quick Menu',
     close: 'Close',
     execute_policy: 'Execute Policy',
+    archived_engagements: 'Archived tactical engagements and casualty reports',
+    no_recent_battles: 'No recent combat engagements recorded on global radar. The theatre is currently in peace or cold standoff.',
+    victory_label: 'Victory',
+    inspect_dossier: 'Inspect Dossier',
+    versus: 'vs',
   },
   ar: {
     game_title: 'القيادة العالمية: عصر الاستراتيجية',
@@ -246,6 +251,11 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     quick_menu: 'القائمة السريعة',
     close: 'إغلاق',
     execute_policy: 'تنفيذ السياسة',
+    archived_engagements: 'الاشتباكات التكتيكية وتقارير الخسائر المؤرشفة',
+    no_recent_battles: 'لا توجد اشتباكات مسجلة حديثًا على الرادار العالمي. تسود حالة من السلام أو التوتر البارد.',
+    victory_label: 'انتصار',
+    inspect_dossier: 'عرض التقرير',
+    versus: 'ضد',
   }
 };
 

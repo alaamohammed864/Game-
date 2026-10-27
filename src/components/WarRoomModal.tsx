@@ -27,10 +27,10 @@ export const WarRoomModal: React.FC<WarRoomModalProps> = ({
             <Swords className="w-5 h-5 text-red-500" />
             <div>
               <h2 className="text-sm font-bold tracking-wider text-white uppercase">
-                {t('war_room', lang)} · Joint Operations Theatre
+                {t('war_room', lang)}
               </h2>
               <span className="text-xs text-slate-400">
-                Archived tactical engagements and casualty reports
+                {t('archived_engagements', lang)}
               </span>
             </div>
           </div>
@@ -43,7 +43,7 @@ export const WarRoomModal: React.FC<WarRoomModalProps> = ({
         <div className="p-4 overflow-y-auto flex-1 space-y-2.5 text-xs">
           {battles.length === 0 ? (
             <div className="p-8 text-center text-slate-500">
-              No recent combat engagements recorded on global radar. The theatre is currently in peace or cold standoff.
+              {t('no_recent_battles', lang)}
             </div>
           ) : (
             battles.map(battle => {
@@ -56,18 +56,18 @@ export const WarRoomModal: React.FC<WarRoomModalProps> = ({
                   <div>
                     <div className="flex items-center gap-2">
                       <strong className="text-white text-xs">{battle.provinceName}</strong>
-                      <span className="text-[10px] text-slate-400">Turn {battle.turn}</span>
+                      <span className="text-[10px] text-slate-400">{t('turn', lang)} {battle.turn}</span>
                       <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
                         isAttackerWin ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'
                       }`}>
-                        {battle.victor === 'ATTACKER' ? `${battle.attackerCountryName} Victory` : `${battle.defenderCountryName} Victory`}
+                        {battle.victor === 'ATTACKER' ? `${battle.attackerCountryName} · ${t('victory_label', lang)}` : `${battle.defenderCountryName} · ${t('victory_label', lang)}`}
                       </span>
                     </div>
 
                     <div className="flex gap-4 text-[11px] text-slate-400 mt-1">
-                      <span>Attacker: <strong className="text-cyan-300">{battle.attackerCountryName}</strong> ({battle.attackerPower.toLocaleString()} pwr)</span>
-                      <span>vs</span>
-                      <span>Defender: <strong className="text-rose-300">{battle.defenderCountryName}</strong> ({battle.defenderPower.toLocaleString()} pwr)</span>
+                      <span>{t('attacker', lang)}: <strong className="text-cyan-300">{battle.attackerCountryName}</strong> ({battle.attackerPower.toLocaleString()} pwr)</span>
+                      <span>{t('versus', lang)}</span>
+                      <span>{t('defender', lang)}: <strong className="text-rose-300">{battle.defenderCountryName}</strong> ({battle.defenderPower.toLocaleString()} pwr)</span>
                     </div>
                   </div>
 
@@ -76,7 +76,7 @@ export const WarRoomModal: React.FC<WarRoomModalProps> = ({
                     className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold text-xs flex items-center gap-1.5 self-start sm:self-auto flex-shrink-0"
                   >
                     <Eye className="w-3.5 h-3.5" />
-                    <span>Inspect Dossier</span>
+                    <span>{t('inspect_dossier', lang)}</span>
                   </button>
                 </div>
               );
